@@ -99,6 +99,12 @@ class PageController extends Controller
         return view('pages.general.maintenance');
     }
 
+    // General Settings - Translation
+    public function generalTranslation(): View
+    {
+        return view('pages.general.translation');
+    }
+
     public function masterData(): RedirectResponse
     {
         return redirect()->route('pages.master-data.residen');
