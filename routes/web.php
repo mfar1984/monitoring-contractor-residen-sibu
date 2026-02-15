@@ -31,6 +31,7 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::post('/pages/general/localization', [PageController::class, 'generalLocalizationStore'])->name('pages.general.localization.store');
     Route::get('/pages/general/maintenance', [PageController::class, 'generalMaintenance'])->name('pages.general.maintenance');
     Route::get('/pages/general/translation', [PageController::class, 'generalTranslation'])->name('pages.general.translation');
+    Route::post('/pages/general/translation', [PageController::class, 'generalTranslationStore'])->name('pages.general.translation.store');
     Route::get('/pages/master-data', [PageController::class, 'masterData'])->name('pages.master-data');
     Route::get('/pages/master-data/residen', [PageController::class, 'masterDataResiden'])->name('pages.master-data.residen');
     Route::post('/pages/master-data/residen', [PageController::class, 'masterDataResidenStore'])->name('pages.master-data.residen.store');

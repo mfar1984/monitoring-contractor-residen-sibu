@@ -102,7 +102,32 @@ class PageController extends Controller
     // General Settings - Translation
     public function generalTranslation(): View
     {
-        return view('pages.general.translation');
+        $lang = request('lang', 'en');
+        $translations = \App\Models\IntegrationSetting::getSettings('translation_' . $lang);
+        return view('pages.general.translation', compact('translations', 'lang'));
+    }
+
+    public function generalTranslationStore(Request $request)
+    {
+        $request->validate([
+            'language' => 'required|in:en,ms,zh',
+            'translations' => 'required|array',
+        ]);
+
+        // Store translations for the selected language
+        foreach ($request->translations as $key => $value) {
+            if (!empty($value)) {
+                \App\Models\IntegrationSetting::setSetting(
+                    'translation_' . $request->language,
+                    $key,
+                    $value
+                );
+            }
+        }
+
+        return redirect()
+            ->route('pages.general.translation', ['lang' => $request->language])
+            ->with('success', 'Translations saved successfully');
     }
 
     public function masterData(): RedirectResponse

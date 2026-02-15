@@ -4,7 +4,7 @@
         <li class="menu-item">
             <a href="{{ route('pages.overview') }}" class="menu-link">
                 <span class="material-symbols-outlined menu-icon">bar_chart</span>
-                <span>Overview</span>
+                <span>{{ \App\Helpers\TranslationHelper::trans('overview', 'Overview') }}</span>
             </a>
         </li>
         
@@ -12,23 +12,23 @@
         <li class="menu-item expandable">
             <a href="#" class="menu-link" onclick="toggleSubmenu(event)">
                 <span class="material-symbols-outlined menu-icon">folder</span>
-                <span>Project</span>
+                <span>{{ \App\Helpers\TranslationHelper::trans('project', 'Project') }}</span>
                 <span class="material-symbols-outlined expand-icon">chevron_right</span>
             </a>
             <ul class="submenu">
                 <li class="submenu-item">
                     <a href="{{ route('pages.pre-project') }}" class="submenu-link">
-                        Pre Project
+                        {{ \App\Helpers\TranslationHelper::trans('pre_project', 'Pre Project') }}
                     </a>
                 </li>
                 <li class="submenu-item">
                     <a href="{{ route('pages.project') }}" class="submenu-link">
-                        Project
+                        {{ \App\Helpers\TranslationHelper::trans('project', 'Project') }}
                     </a>
                 </li>
                 <li class="submenu-item">
                     <a href="{{ route('pages.contractor-analysis') }}" class="submenu-link">
-                        Contractor Analysis
+                        {{ \App\Helpers\TranslationHelper::trans('contractor_analysis', 'Contractor Analysis') }}
                     </a>
                 </li>
             </ul>
@@ -41,38 +41,38 @@
         <li class="menu-item expandable">
             <a href="#" class="menu-link" onclick="toggleSubmenu(event)">
                 <span class="material-symbols-outlined menu-icon">settings</span>
-                <span>System Settings</span>
+                <span>{{ \App\Helpers\TranslationHelper::trans('system_settings', 'System Settings') }}</span>
                 <span class="material-symbols-outlined expand-icon">chevron_right</span>
             </a>
             <ul class="submenu">
                 <li class="submenu-item">
                     <a href="{{ route('pages.general') }}" class="submenu-link">
-                        General
+                        {{ \App\Helpers\TranslationHelper::trans('general', 'General') }}
                     </a>
                 </li>
                 <li class="submenu-item">
                     <a href="{{ route('pages.master-data') }}" class="submenu-link">
-                        Master Data
+                        {{ \App\Helpers\TranslationHelper::trans('master_data', 'Master Data') }}
                     </a>
                 </li>
                 <li class="submenu-item">
                     <a href="{{ route('pages.group-roles') }}" class="submenu-link">
-                        Group Roles
+                        {{ \App\Helpers\TranslationHelper::trans('group_roles', 'Group Roles') }}
                     </a>
                 </li>
                 <li class="submenu-item">
                     <a href="{{ route('pages.users-id') }}" class="submenu-link">
-                        Users Id
+                        {{ \App\Helpers\TranslationHelper::trans('users_id', 'Users ID') }}
                     </a>
                 </li>
                 <li class="submenu-item">
                     <a href="{{ route('pages.integrations') }}" class="submenu-link">
-                        Integrations
+                        {{ \App\Helpers\TranslationHelper::trans('integrations', 'Integrations') }}
                     </a>
                 </li>
                 <li class="submenu-item">
                     <a href="{{ route('pages.activity-log') }}" class="submenu-link">
-                        Activity Log
+                        {{ \App\Helpers\TranslationHelper::trans('activity_log', 'Activity Log') }}
                     </a>
                 </li>
             </ul>
