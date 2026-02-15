@@ -1,0 +1,150 @@
+/* Tabs Component */
+.tabs-container {
+    background-color: transparent;
+    border-radius: 4px;
+    width: 100%;
+    overflow: visible;
+}
+
+.tabs-header {
+    display: block;
+    border-bottom: 2px solid #e0e0e0;
+    background-color: transparent;
+    padding: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Hide scrollbar for Firefox */
+    white-space: nowrap;
+    scroll-behavior: smooth;
+    width: 100%;
+    max-width: 100%;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.tabs-header::-webkit-scrollbar {
+    display: none;
+}
+
+.tab-button {
+    padding: 10px 20px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    font-size: 12px;
+    color: #666666;
+    transition: all 0.3s ease;
+    position: relative;
+    font-weight: 500;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-block;
+    margin-right: 2px;
+}
+
+.tab-button:hover {
+    background-color: #e9ecef;
+    color: #333333;
+}
+
+.tab-button.active {
+    color: #007bff;
+    background-color: white;
+    border-bottom: 3px solid #007bff;
+    margin-bottom: -2px;
+    font-weight: 600;
+}
+
+.tabs-content {
+    padding: 20px;
+    background-color: white;
+    border: 1px solid #e0e0e0;
+    border-top: none;
+    overflow-x: auto;
+    width: 100%;
+}
+
+.tabs-content h3 {
+    font-size: 12px;
+    margin-bottom: 20px;
+    color: #333333;
+}
+
+.tabs-content p {
+    font-size: 12px;
+    color: #666666;
+    line-height: 1.6;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+.tab-pane h3 {
+    font-size: 12px;
+    margin-bottom: 15px;
+    color: #333333;
+}
+
+.tab-pane p {
+    font-size: 12px;
+    color: #666666;
+}
+
+/* Tab Content for JavaScript Tabs */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Form Styling in Tabs */
+.tabs-content .form-group {
+    margin-bottom: 16px;
+}
+
+.tabs-content .form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: #333333;
+    font-size: 12px;
+}
+
+.tabs-content .form-group input,
+.tabs-content .form-group textarea,
+.tabs-content .form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #333333;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tabs-content .form-group input:focus,
+.tabs-content .form-group textarea:focus,
+.tabs-content .form-group select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.tabs-content .form-group textarea {
+    resize: vertical;
+    font-family: monospace;
+}
+
+.tabs-content .form-group select {
+    background-color: white;
+    cursor: pointer;
+}

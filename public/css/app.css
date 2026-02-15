@@ -1,0 +1,588 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-size: 12px;
+    font-family: Arial, sans-serif;
+}
+
+html, body {
+    overflow-x: hidden;
+    width: 100%;
+}
+
+/* Layout container */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow-x: hidden;
+    width: 100%;
+}
+
+/* Header Area - Grid with logo spanning 2 rows */
+.header-area {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    grid-template-rows: auto auto;
+}
+
+/* Logo Area - spans 2 rows */
+.logo-area {
+    grid-row: span 2;
+    background-color: #ffffff;
+    border-right: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo-text {
+    font-size: 12px;
+    font-weight: bold;
+    color: #333333;
+}
+
+/* Header Area Content */
+.header-area-content {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+/* Breadcrumb Area Content */
+.breadcrumb-area-content {
+    background-color: #ffffff;
+}
+
+/* Main Area */
+.main-area {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    flex: 1;
+}
+
+.sidebar-area {
+    background-color: #ffffff;
+    border-right: 1px solid #e0e0e0;
+}
+
+.content-area-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow-x: hidden;
+    width: 100%;
+}
+
+/* Header/Topbar */
+.topbar {
+    background-color: #ffffff;
+    color: #333333;
+    padding: 8px 20px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.topbar-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.topbar-welcome {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+}
+
+.topbar-separator {
+    color: #6c757d;
+}
+
+/* Topbar Actions */
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.topbar-icon {
+    position: relative;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.topbar-icon:hover {
+    background-color: #f0f0f0;
+}
+
+.topbar-icon .material-symbols-outlined {
+    font-size: 20px;
+    color: #666666;
+}
+
+/* Notification Badge */
+.notification-icon {
+    position: relative;
+}
+
+.notification-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: #dc3545;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 5px;
+    border-radius: 10px;
+    min-width: 16px;
+    text-align: center;
+}
+
+/* User Dropdown */
+.user-dropdown {
+    position: relative;
+}
+
+.user-dropdown-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.user-dropdown-toggle:hover {
+    background-color: #f0f0f0;
+}
+
+.user-icon {
+    font-size: 24px;
+    color: #007bff;
+}
+
+.user-email {
+    font-size: 12px;
+    color: #333333;
+}
+
+.dropdown-arrow {
+    font-size: 20px;
+    color: #666666;
+    transition: transform 0.3s ease;
+}
+
+.user-dropdown-toggle:hover .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+/* Dropdown Menu */
+.user-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 5px;
+    background-color: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    min-width: 180px;
+    display: none;
+    z-index: 1000;
+}
+
+.user-dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    color: #333333;
+    text-decoration: none;
+    font-size: 12px;
+    transition: background-color 0.2s ease;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+}
+
+.dropdown-item:hover {
+    background-color: #f0f0f0;
+}
+
+.dropdown-item .material-symbols-outlined {
+    font-size: 18px;
+    color: #666666;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background-color: #e0e0e0;
+    margin: 5px 0;
+}
+
+.logout-item {
+    color: #dc3545;
+}
+
+.logout-item .material-symbols-outlined {
+    color: #dc3545;
+}
+
+.logo {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Breadcrumb */
+.breadcrumb-container {
+    background-color: #ffffff;
+    padding: 6px 20px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.breadcrumb {
+    font-size: 12px;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.breadcrumb-icon {
+    font-size: 16px;
+    vertical-align: middle;
+}
+
+.breadcrumb a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.breadcrumb-separator {
+    color: #6c757d;
+}
+
+/* Sidebar */
+.sidebar-nav {
+    padding: 15px 0;
+}
+
+.sidebar-nav .menu-list {
+    list-style: none;
+}
+
+.sidebar-nav .menu-item {
+    padding: 0;
+    position: relative;
+}
+
+/* All menu links - centralized styling */
+.sidebar-nav .menu-link {
+    color: #333333;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    gap: 12px;
+    transition: background-color 0.2s ease;
+    position: relative;
+}
+
+/* Ribbon effect on hover - applies to all menu links */
+.sidebar-nav .menu-link:before {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background-color: #007bff;
+    transform: scaleY(0);
+    transition: transform 0.2s ease;
+}
+
+.sidebar-nav .menu-link:hover:before {
+    transform: scaleY(1);
+}
+
+.sidebar-nav .menu-link:hover {
+    background-color: #e3f2fd;
+}
+
+/* Menu icon - centralized styling */
+.menu-icon {
+    font-size: 20px;
+    color: #666666;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Menu text wrapper */
+.sidebar-nav .menu-link > span:not(.menu-icon):not(.expand-icon) {
+    flex: 1;
+}
+
+/* Expand icon - only for expandable menus */
+.expand-icon {
+    transition: all 0.3s ease;
+    font-size: 20px;
+    color: #666666;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* Menu separator */
+.menu-separator {
+    height: 1px;
+    background-color: #e0e0e0;
+    margin: 15px 20px;
+}
+
+/* Expandable menu */
+.menu-item.expandable .submenu {
+    display: none;
+    list-style: none;
+    background-color: #ffffff;
+    position: relative;
+    padding-left: 0;
+}
+
+.menu-item.expandable .submenu:before {
+    content: '';
+    position: absolute;
+    left: 30px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #d0d0d0;
+}
+
+.menu-item.expandable.expanded .submenu {
+    display: block;
+}
+
+/* Submenu */
+.submenu-item {
+    padding: 0;
+    position: relative;
+}
+
+.submenu-link {
+    color: #666666;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    padding: 10px 20px 10px 70px;
+    gap: 10px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    position: relative;
+}
+
+/* Horizontal branch line from vertical line to dot */
+.submenu-link:before {
+    content: "";
+    position: absolute;
+    left: 30px;
+    top: 50%;
+    width: 20px;
+    height: 2px;
+    background-color: #d0d0d0;
+}
+
+/* Dot at the end of horizontal branch */
+.submenu-link:after {
+    content: "";
+    position: absolute;
+    left: 46px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #999999;
+}
+
+/* Ribbon effect on hover for submenu */
+.submenu-link:hover:before {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background-color: #007bff;
+    left: auto;
+    height: auto;
+    border-radius: 0;
+    transform: none;
+}
+
+.submenu-link:hover {
+    background-color: #e3f2fd;
+    color: #333333;
+}
+
+/* Content area */
+.content-area {
+    flex: 1;
+    padding: 20px;
+    background-color: #ecf0f1;
+    overflow-x: hidden;
+    width: 100%;
+}
+
+/* Footer */
+.footer {
+    background-color: #ffffff;
+    color: #333333;
+    padding: 15px 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.footer-left p {
+    margin: 0;
+    font-size: 12px;
+}
+
+.footer-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.footer-link {
+    color: #007bff;
+    text-decoration: none;
+    font-size: 12px;
+}
+
+.footer-link:hover {
+    text-decoration: underline;
+}
+
+.footer-separator {
+    color: #6c757d;
+    font-size: 12px;
+}
+
+/* Login form */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #ecf0f1;
+}
+
+.login-box {
+    background: white;
+    padding: 30px;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-box h2 {
+    font-size: 12px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.error-message {
+    color: #e74c3c;
+    margin-bottom: 10px;
+    font-size: 12px;
+}
+
+/* Under Construction Page */
+.under-construction {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+    width: 100%;
+}
+
+.under-construction-content {
+    text-align: center;
+}
+
+.construction-icon {
+    color: #95a5a6;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.construction-icon svg {
+    width: 80px;
+    height: 80px;
+}
+
+.construction-text {
+    font-size: 12px;
+    color: #7f8c8d;
+}
+
+/* Dashboard content */
+.dashboard-content {
+    padding: 20px;
+}
+
+.dashboard-content h1 {
+    font-size: 12px;
+    margin-bottom: 10px;
+}
+
+.dashboard-content p {
+    font-size: 12px;
+    color: #7f8c8d;
+}

@@ -1,0 +1,63 @@
+/* Pagination Component */
+.table-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 15px;
+}
+
+.showing-info {
+    font-size: 12px;
+    color: #666666;
+}
+
+.pagination {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.pagination-btn {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    border-radius: 0;
+    cursor: pointer;
+    font-size: 12px;
+    color: #666666;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+}
+
+.pagination-btn .material-symbols-outlined {
+    font-size: 16px;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    color: #007bff;
+}
+
+.pagination-btn.active {
+    background-color: #007bff;
+    color: white;
+    border-radius: 50%;
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination-dots {
+    padding: 0 8px;
+    color: #666666;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+}

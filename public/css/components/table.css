@@ -1,0 +1,104 @@
+/* Table Component */
+.table-container {
+    overflow-x: auto;
+    margin-bottom: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    border-left: 1px solid #e0e0e0;
+    border-right: 1px solid #e0e0e0;
+}
+
+.data-table thead {
+    background-color: #f8f9fa;
+}
+
+.data-table th {
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #333333;
+    border-bottom: 2px solid #e0e0e0;
+    font-size: 12px;
+}
+
+.data-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 12px;
+    color: #666666;
+}
+
+.data-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Status Badge */
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.status-active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-suspended {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-btn .material-symbols-outlined {
+    font-size: 18px;
+}
+
+.action-btn:hover {
+    background-color: #f0f0f0;
+}
+
+.action-suspend .material-symbols-outlined {
+    color: #ffc107;
+}
+
+.action-activate .material-symbols-outlined {
+    color: #28a745;
+}
+
+.action-view .material-symbols-outlined {
+    color: #17a2b8;
+}
+
+.action-edit .material-symbols-outlined {
+    color: #007bff;
+}
+
+.action-delete .material-symbols-outlined {
+    color: #dc3545;
+}
