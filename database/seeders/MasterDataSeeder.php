@@ -13,6 +13,7 @@ use App\Models\Dun;
 use App\Models\LandTitleStatus;
 use App\Models\ProjectOwnership;
 use App\Models\ImplementationMethod;
+use App\Models\NocNote;
 
 class MasterDataSeeder extends Seeder
 {
@@ -147,6 +148,21 @@ class MasterDataSeeder extends Seeder
 
         foreach ($implementationMethods as $method) {
             ImplementationMethod::create($method);
+        }
+
+        // NOC Notes
+        $nocNotes = [
+            ['name' => 'Change of Project Scope', 'code' => 'NOC-SCOPE', 'description' => 'Project scope has been modified', 'status' => 'Active'],
+            ['name' => 'Budget Adjustment', 'code' => 'NOC-BUDGET', 'description' => 'Project budget has been adjusted', 'status' => 'Active'],
+            ['name' => 'Timeline Extension', 'code' => 'NOC-TIME', 'description' => 'Project timeline has been extended', 'status' => 'Active'],
+            ['name' => 'Location Change', 'code' => 'NOC-LOC', 'description' => 'Project location has been changed', 'status' => 'Active'],
+            ['name' => 'Agency Transfer', 'code' => 'NOC-AGENCY', 'description' => 'Implementing agency has been changed', 'status' => 'Active'],
+            ['name' => 'Design Modification', 'code' => 'NOC-DESIGN', 'description' => 'Project design has been modified', 'status' => 'Active'],
+            ['name' => 'Cost Revision', 'code' => 'NOC-COST', 'description' => 'Project cost has been revised', 'status' => 'Active'],
+        ];
+
+        foreach ($nocNotes as $note) {
+            NocNote::create($note);
         }
     }
 }

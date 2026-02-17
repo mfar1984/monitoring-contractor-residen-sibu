@@ -29,7 +29,11 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::post('/pages/general/application', [PageController::class, 'generalApplicationStore'])->name('pages.general.application.store');
     Route::get('/pages/general/localization', [PageController::class, 'generalLocalization'])->name('pages.general.localization');
     Route::post('/pages/general/localization', [PageController::class, 'generalLocalizationStore'])->name('pages.general.localization.store');
+    Route::post('/pages/general/localization/language/add', [PageController::class, 'addLanguage'])->name('pages.general.localization.language.add');
+    Route::delete('/pages/general/localization/language/{id}', [PageController::class, 'deleteLanguage'])->name('pages.general.localization.language.delete');
     Route::get('/pages/general/maintenance', [PageController::class, 'generalMaintenance'])->name('pages.general.maintenance');
+    Route::get('/pages/general/approver', [PageController::class, 'generalApprover'])->name('pages.general.approver');
+    Route::post('/pages/general/approver', [PageController::class, 'generalApproverStore'])->name('pages.general.approver.store');
     Route::get('/pages/general/translation', [PageController::class, 'generalTranslation'])->name('pages.general.translation');
     Route::post('/pages/general/translation', [PageController::class, 'generalTranslationStore'])->name('pages.general.translation.store');
     Route::get('/pages/master-data', [PageController::class, 'masterData'])->name('pages.master-data');
@@ -82,6 +86,10 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::post('/pages/master-data/implementation-method', [PageController::class, 'masterDataImplementationMethodStore'])->name('pages.master-data.implementation-method.store');
     Route::put('/pages/master-data/implementation-method/{id}', [PageController::class, 'masterDataImplementationMethodUpdate'])->name('pages.master-data.implementation-method.update');
     Route::delete('/pages/master-data/implementation-method/{id}', [PageController::class, 'masterDataImplementationMethodDelete'])->name('pages.master-data.implementation-method.delete');
+    Route::get('/pages/master-data/noc-note', [PageController::class, 'masterDataNocNote'])->name('pages.master-data.noc-note');
+    Route::post('/pages/master-data/noc-note', [PageController::class, 'masterDataNocNoteStore'])->name('pages.master-data.noc-note.store');
+    Route::put('/pages/master-data/noc-note/{id}', [PageController::class, 'masterDataNocNoteUpdate'])->name('pages.master-data.noc-note.update');
+    Route::delete('/pages/master-data/noc-note/{id}', [PageController::class, 'masterDataNocNoteDelete'])->name('pages.master-data.noc-note.delete');
     Route::get('/pages/group-roles', [PageController::class, 'groupRoles'])->name('pages.group-roles');
     Route::get('/pages/users-id', [PageController::class, 'usersId'])->name('pages.users-id');
     Route::get('/pages/users-id/residen', [PageController::class, 'usersIdResiden'])->name('pages.users-id.residen');
@@ -105,6 +113,7 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::post('/pages/integrations/email', [PageController::class, 'integrationsEmailStore'])->name('pages.integrations.email.store');
     Route::get('/pages/integrations/sms', [PageController::class, 'integrationsSms'])->name('pages.integrations.sms');
     Route::post('/pages/integrations/sms', [PageController::class, 'integrationsSmsStore'])->name('pages.integrations.sms.store');
+    Route::post('/pages/integrations/sms/test', [PageController::class, 'integrationsSmsTest'])->name('pages.integrations.sms.test');
     Route::get('/pages/integrations/webhook', [PageController::class, 'integrationsWebhook'])->name('pages.integrations.webhook');
     Route::post('/pages/integrations/webhook', [PageController::class, 'integrationsWebhookStore'])->name('pages.integrations.webhook.store');
     Route::get('/pages/integrations/api', [PageController::class, 'integrationsApi'])->name('pages.integrations.api');
@@ -122,8 +131,44 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::get('/pages/pre-project/{id}/print', [PageController::class, 'preProjectPrint'])->name('pages.pre-project.print');
     Route::put('/pages/pre-project/{id}', [PageController::class, 'preProjectUpdate'])->name('pages.pre-project.update');
     Route::delete('/pages/pre-project/{id}', [PageController::class, 'preProjectDelete'])->name('pages.pre-project.delete');
-    Route::get('/pages/pre-project/noc', [PageController::class, 'preProjectNoc'])->name('pages.pre-project.noc');
+    Route::post('/pages/pre-project/{id}/approve', [PageController::class, 'preProjectApprove'])->name('pages.pre-project.approve');
+    Route::post('/pages/pre-project/{id}/reject', [PageController::class, 'preProjectReject'])->name('pages.pre-project.reject');
+    // Project routes
     Route::get('/pages/project', [PageController::class, 'project'])->name('pages.project');
+    
+    // NOC routes (under project namespace) - MUST be before /pages/project/{id}
+    Route::get('/pages/project/noc', [PageController::class, 'projectNoc'])->name('pages.project.noc');
+    Route::get('/pages/project/noc/create', [PageController::class, 'projectNocCreate'])->name('pages.project.noc.create');
+    Route::post('/pages/project/noc', [PageController::class, 'projectNocStore'])->name('pages.project.noc.store');
+    Route::get('/pages/project/noc/{id}', [PageController::class, 'projectNocShow'])->name('pages.project.noc.show');
+    Route::post('/pages/project/noc/{id}/submit', [PageController::class, 'projectNocSubmit'])->name('pages.project.noc.submit');
+    Route::post('/pages/project/noc/{id}/approve', [PageController::class, 'projectNocApprove'])->name('pages.project.noc.approve');
+    Route::post('/pages/project/noc/{id}/reject', [PageController::class, 'projectNocReject'])->name('pages.project.noc.reject');
+    Route::get('/pages/project/noc/{id}/print', [PageController::class, 'projectNocPrint'])->name('pages.project.noc.print');
+    Route::delete('/pages/project/noc/{id}', [PageController::class, 'projectNocDelete'])->name('pages.project.noc.delete');
+    
+    // Project transfer routes - MUST be before /pages/project/{id}
+    Route::get('/pages/project/transfer', [PageController::class, 'projectTransferCreate'])->name('pages.project.transfer.create');
+    Route::post('/pages/project/transfer', [PageController::class, 'projectTransferStore'])->name('pages.project.transfer.store');
+    
+    // Project JSON data route - MUST be before /pages/project/{id}
+    Route::get('/pages/project/{id}/edit', [PageController::class, 'projectEdit'])->name('pages.project.edit');
+    
+    // Project show route - MUST be after specific routes
+    Route::get('/pages/project/{id}', [PageController::class, 'projectShow'])->name('pages.project.show');
+    
+    Route::get('/pages/project-cancel', [PageController::class, 'projectCancel'])->name('pages.project-cancel');
+    
+    // Redirect old NOC routes to new routes (301 permanent)
+    Route::permanentRedirect('/pages/pre-project/noc', '/pages/project/noc');
+    Route::permanentRedirect('/pages/pre-project/noc/create', '/pages/project/noc/create');
+    Route::get('/pages/pre-project/noc/{id}', function($id) {
+        return redirect("/pages/project/noc/{$id}", 301);
+    });
+    Route::get('/pages/pre-project/noc/{id}/print', function($id) {
+        return redirect("/pages/project/noc/{$id}/print", 301);
+    });
+    
     Route::get('/pages/contractor-analysis', [PageController::class, 'contractorAnalysis'])->name('pages.contractor-analysis');
 });
 

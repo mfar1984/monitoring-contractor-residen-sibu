@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Pages;
 
 use App\Http\Controllers\Controller;
+use App\Models\Project;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -29,23 +30,105 @@ class PageController extends Controller
 
     public function generalApplicationStore(Request $request)
     {
-        $request->validate([
-            'app_name' => 'required|string|max:255',
-            'sidebar_name' => 'required|string|max:255',
-            'app_url' => 'required|url',
-            'sidebar_display' => 'required|in:name_only,logo_only,logo_and_name',
-            'sidebar_logo' => 'nullable|image|mimes:png,jpg,jpeg,svg|max:2048',
-            'items_per_page' => 'nullable|integer|min:5|max:100',
-            'session_lifetime' => 'nullable|integer|min:30|max:1440',
-            'maintenance_mode' => 'nullable|boolean',
-        ]);
+        // Check if this is a logo-only upload (no other fields present)
+        $isLogoOnlyUpload = ($request->hasFile('login_logo') || $request->hasFile('sidebar_logo') || $request->hasFile('login_background')) 
+            && !$request->has('app_name');
 
-        \App\Models\IntegrationSetting::setSetting('application', 'app_name', $request->app_name);
-        \App\Models\IntegrationSetting::setSetting('application', 'sidebar_name', $request->sidebar_name);
-        \App\Models\IntegrationSetting::setSetting('application', 'app_url', $request->app_url);
-        \App\Models\IntegrationSetting::setSetting('application', 'sidebar_display', $request->sidebar_display);
+        // Handle login logo removal
+        if ($request->has('remove_login_logo')) {
+            $oldLogo = \App\Models\IntegrationSetting::getSetting('application', 'login_logo');
+            if ($oldLogo && \Storage::disk('public')->exists($oldLogo)) {
+                \Storage::disk('public')->delete($oldLogo);
+            }
+            \App\Models\IntegrationSetting::setSetting('application', 'login_logo', null);
+            return redirect()->route('pages.general.application')->with('success', 'Login logo removed successfully');
+        }
+
+        // Handle login background removal
+        if ($request->has('remove_login_background')) {
+            $oldBg = \App\Models\IntegrationSetting::getSetting('application', 'login_background');
+            if ($oldBg && \Storage::disk('public')->exists($oldBg)) {
+                \Storage::disk('public')->delete($oldBg);
+            }
+            \App\Models\IntegrationSetting::setSetting('application', 'login_background', null);
+            return redirect()->route('pages.general.application')->with('success', 'Login background removed successfully');
+        }
+
+        // Handle sidebar logo removal
+        if ($request->has('remove_sidebar_logo')) {
+            $oldLogo = \App\Models\IntegrationSetting::getSetting('application', 'sidebar_logo');
+            if ($oldLogo && \Storage::disk('public')->exists($oldLogo)) {
+                \Storage::disk('public')->delete($oldLogo);
+            }
+            \App\Models\IntegrationSetting::setSetting('application', 'sidebar_logo', null);
+            return redirect()->route('pages.general.application')->with('success', 'Sidebar logo removed successfully');
+        }
+
+        // Validate based on request type
+        if ($isLogoOnlyUpload) {
+            // Logo-only upload validation
+            $request->validate([
+                'login_logo' => 'nullable|image|mimes:png,jpg,jpeg,svg|max:2048',
+                'login_background' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
+                'sidebar_logo' => 'nullable|image|mimes:png,jpg,jpeg,svg|max:2048',
+            ]);
+        } else {
+            // Full form validation
+            $request->validate([
+                'app_name' => 'required|string|max:255',
+                'sidebar_name' => 'required|string|max:255',
+                'app_url' => 'required|url',
+                'sidebar_display' => 'required|in:name_only,logo_only,logo_and_name',
+                'login_logo' => 'nullable|image|mimes:png,jpg,jpeg,svg|max:2048',
+                'login_background' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
+                'sidebar_logo' => 'nullable|image|mimes:png,jpg,jpeg,svg|max:2048',
+                'items_per_page' => 'nullable|integer|min:5|max:100',
+                'session_lifetime' => 'nullable|integer|min:30|max:1440',
+                'maintenance_mode' => 'nullable|boolean',
+            ]);
+        }
+
+        // Handle login logo upload
+        if ($request->hasFile('login_logo')) {
+            // Delete old logo if exists
+            $oldLogo = \App\Models\IntegrationSetting::getSetting('application', 'login_logo');
+            if ($oldLogo && \Storage::disk('public')->exists($oldLogo)) {
+                \Storage::disk('public')->delete($oldLogo);
+            }
+            
+            // Store new logo
+            $file = $request->file('login_logo');
+            $filename = 'login_logo_' . time() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('logos', $filename, 'public');
+            \App\Models\IntegrationSetting::setSetting('application', 'login_logo', $path);
+            
+            // If logo-only upload, return early
+            if ($isLogoOnlyUpload) {
+                return redirect()->route('pages.general.application')->with('success', 'Login logo uploaded successfully');
+            }
+        }
+
+        // Handle login background upload
+        if ($request->hasFile('login_background')) {
+            // Delete old background if exists
+            $oldBg = \App\Models\IntegrationSetting::getSetting('application', 'login_background');
+            if ($oldBg && \Storage::disk('public')->exists($oldBg)) {
+                \Storage::disk('public')->delete($oldBg);
+            }
+            
+            // Store new background
+            $file = $request->file('login_background');
+            $filename = 'login_bg_' . time() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('backgrounds', $filename, 'public');
+            \App\Models\IntegrationSetting::setSetting('application', 'login_background', $path);
+            
+            // If logo-only upload, return early
+            if ($isLogoOnlyUpload) {
+                return redirect()->route('pages.general.application')->with('success', 'Login background uploaded successfully');
+            }
+        }
         
-        // Handle logo upload
+        // Handle sidebar logo upload
         if ($request->hasFile('sidebar_logo')) {
             // Delete old logo if exists
             $oldLogo = \App\Models\IntegrationSetting::getSetting('application', 'sidebar_logo');
@@ -58,11 +141,23 @@ class PageController extends Controller
             $filename = 'sidebar_logo_' . time() . '.' . $file->getClientOriginalExtension();
             $path = $file->storeAs('logos', $filename, 'public');
             \App\Models\IntegrationSetting::setSetting('application', 'sidebar_logo', $path);
+            
+            // If logo-only upload, return early
+            if ($isLogoOnlyUpload) {
+                return redirect()->route('pages.general.application')->with('success', 'Sidebar logo uploaded successfully');
+            }
         }
         
-        \App\Models\IntegrationSetting::setSetting('application', 'items_per_page', $request->items_per_page ?? 10);
-        \App\Models\IntegrationSetting::setSetting('application', 'session_lifetime', $request->session_lifetime ?? 120);
-        \App\Models\IntegrationSetting::setSetting('application', 'maintenance_mode', $request->has('maintenance_mode') ? 1 : 0);
+        // Save other settings (only if not logo-only upload)
+        if (!$isLogoOnlyUpload) {
+            \App\Models\IntegrationSetting::setSetting('application', 'app_name', $request->app_name);
+            \App\Models\IntegrationSetting::setSetting('application', 'sidebar_name', $request->sidebar_name);
+            \App\Models\IntegrationSetting::setSetting('application', 'app_url', $request->app_url);
+            \App\Models\IntegrationSetting::setSetting('application', 'sidebar_display', $request->sidebar_display);
+            \App\Models\IntegrationSetting::setSetting('application', 'items_per_page', $request->items_per_page ?? 10);
+            \App\Models\IntegrationSetting::setSetting('application', 'session_lifetime', $request->session_lifetime ?? 120);
+            \App\Models\IntegrationSetting::setSetting('application', 'maintenance_mode', $request->has('maintenance_mode') ? 1 : 0);
+        }
 
         return redirect()->route('pages.general.application')->with('success', 'Application settings saved successfully');
     }
@@ -71,13 +166,14 @@ class PageController extends Controller
     public function generalLocalization(): View
     {
         $settings = \App\Models\IntegrationSetting::getSettings('localization');
-        return view('pages.general.localization', compact('settings'));
+        $languages = \App\Models\Language::getActiveLanguages();
+        return view('pages.general.localization', compact('settings', 'languages'));
     }
 
     public function generalLocalizationStore(Request $request)
     {
         $request->validate([
-            'locale' => 'required|string|in:en,ms,zh',
+            'locale' => 'required|string|exists:languages,code',
             'timezone' => 'required|string',
             'date_format' => 'nullable|string',
             'time_format' => 'nullable|string',
@@ -99,18 +195,61 @@ class PageController extends Controller
         return view('pages.general.maintenance');
     }
 
+    // General Settings - Approver
+    public function generalApprover(): View
+    {
+        $settings = \App\Models\IntegrationSetting::getSettings('application');
+        $residenUsers = \App\Models\User::whereNotNull('residen_category_id')
+            ->where('status', 'Active')
+            ->with('residenCategory')
+            ->orderBy('full_name')
+            ->get();
+        
+        // Get pre-project approvers
+        $preProjectApproversJson = \App\Models\IntegrationSetting::getSetting('approver', 'pre_project_approvers');
+        $preProjectApprovers = $preProjectApproversJson ? json_decode($preProjectApproversJson, true) : [];
+        
+        return view('pages.general.approver', compact('settings', 'residenUsers', 'preProjectApprovers'));
+    }
+
+    public function generalApproverStore(Request $request)
+    {
+        $request->validate([
+            'pre_project_approvers' => 'required|array|min:1',
+            'pre_project_approvers.*' => 'exists:users,id',
+            'first_approval_user' => 'required|exists:users,id',
+            'second_approval_user' => 'required|exists:users,id',
+        ]);
+
+        // Save pre-project approvers as JSON
+        \App\Models\IntegrationSetting::setSetting('approver', 'pre_project_approvers', json_encode($request->pre_project_approvers));
+        
+        // Save NOC approval settings
+        \App\Models\IntegrationSetting::setSetting('application', 'first_approval_user', $request->first_approval_user);
+        \App\Models\IntegrationSetting::setSetting('application', 'second_approval_user', $request->second_approval_user);
+
+        return redirect()->route('pages.general.approver')->with('success', 'Approver settings saved successfully');
+    }
+
     // General Settings - Translation
     public function generalTranslation(): View
     {
         $lang = request('lang', 'en');
+        $languages = \App\Models\Language::getActiveLanguages();
+        
+        // Validate that the requested language exists
+        if (!$languages->contains('code', $lang)) {
+            $lang = 'en';
+        }
+        
         $translations = \App\Models\IntegrationSetting::getSettings('translation_' . $lang);
-        return view('pages.general.translation', compact('translations', 'lang'));
+        return view('pages.general.translation', compact('translations', 'lang', 'languages'));
     }
 
     public function generalTranslationStore(Request $request)
     {
         $request->validate([
-            'language' => 'required|in:en,ms,zh',
+            'language' => 'required|string|exists:languages,code',
             'translations' => 'required|array',
         ]);
 
@@ -128,6 +267,38 @@ class PageController extends Controller
         return redirect()
             ->route('pages.general.translation', ['lang' => $request->language])
             ->with('success', 'Translations saved successfully');
+    }
+
+    // Language Management
+    public function addLanguage(Request $request)
+    {
+        $request->validate([
+            'code' => 'required|string|max:10|unique:languages,code',
+            'name' => 'required|string|max:255',
+        ]);
+
+        \App\Models\Language::create([
+            'code' => strtolower($request->code),
+            'name' => $request->name,
+            'is_default' => false,
+            'status' => 'Active'
+        ]);
+
+        return redirect()->route('pages.general.localization')->with('success', 'Language added successfully');
+    }
+
+    public function deleteLanguage($id)
+    {
+        $language = \App\Models\Language::findOrFail($id);
+        
+        // Prevent deletion of default languages
+        if ($language->is_default) {
+            return redirect()->route('pages.general.localization')->with('error', 'Cannot delete default language');
+        }
+
+        $language->delete();
+
+        return redirect()->route('pages.general.localization')->with('success', 'Language deleted successfully');
     }
 
     public function masterData(): RedirectResponse
@@ -606,7 +777,7 @@ class PageController extends Controller
 
     public function usersIdResiden(): View
     {
-        $users = \App\Models\User::with('residenCategory')->orderBy('created_at', 'desc')->get();
+        $users = \App\Models\User::with('residenCategory')->whereNotNull('residen_category_id')->orderBy('created_at', 'desc')->get();
         $categories = \App\Models\ResidenCategory::where('status', 'Active')->orderBy('name')->get();
         return view('pages.users-id.residen', compact('users', 'categories'));
     }
@@ -975,18 +1146,31 @@ class PageController extends Controller
     {
         $request->validate([
             'api_url' => 'required|url|max:255',
-            'api_key' => 'nullable|string|max:255',
+            'username' => 'required|string|max:255',
+            'password' => 'nullable|string|max:255',
             'sender_id' => 'required|string|max:255',
         ]);
 
         foreach ($request->except('_token') as $key => $value) {
-            if ($key === 'api_key' && empty($value)) {
+            if ($key === 'password' && empty($value)) {
                 continue;
             }
             \App\Models\IntegrationSetting::setSetting('sms', $key, $value);
         }
 
         return redirect()->route('pages.integrations.sms')->with('success', 'SMS configuration saved successfully');
+    }
+
+    public function integrationsSmsTest(Request $request)
+    {
+        $request->validate([
+            'test_phone' => 'required|string|max:20',
+        ]);
+
+        $smsService = new \App\Services\InfoBlastSmsService();
+        $result = $smsService->sendTestSms($request->test_phone);
+
+        return response()->json($result);
     }
 
     public function integrationsWebhookStore(Request $request)
@@ -1236,6 +1420,8 @@ class PageController extends Controller
 
     public function preProject(): View
     {
+        $user = auth()->user();
+        
         $preProjects = \App\Models\PreProject::with([
             'residenCategory', 
             'agencyCategory', 
@@ -1263,6 +1449,7 @@ class PageController extends Controller
         $projectOwnerships = \App\Models\ProjectOwnership::where('status', 'Active')->orderBy('name')->get();
         
         return view('pages.pre-project', compact(
+            'user',
             'preProjects',
             'residenCategories',
             'agencyCategories',
@@ -1345,7 +1532,7 @@ class PageController extends Controller
                               ($request->sst ?? 0) + 
                               ($request->others_cost ?? 0);
         
-        $data['status'] = 'Active';
+        $data['status'] = 'Waiting for Approval';
 
         \App\Models\PreProject::create($data);
 
@@ -1440,6 +1627,59 @@ class PageController extends Controller
         return redirect()->route('pages.pre-project')->with('success', 'Pre-Project deleted successfully');
     }
 
+    // Pre-Project Approval Methods
+    public function preProjectApprove($id)
+    {
+        $preProject = \App\Models\PreProject::findOrFail($id);
+        $user = auth()->user();
+        
+        // Get pre-project approvers from settings
+        $preProjectApproversJson = \App\Models\IntegrationSetting::getSetting('approver', 'pre_project_approvers');
+        $preProjectApprovers = $preProjectApproversJson ? json_decode($preProjectApproversJson, true) : [];
+        
+        // Check if current user is an authorized approver
+        if (!in_array($user->id, $preProjectApprovers)) {
+            return redirect()->back()->with('error', 'You are not authorized to approve this Pre-Project');
+        }
+        
+        // Check if Pre-Project is in correct status
+        if ($preProject->status !== 'Waiting for Approval') {
+            return redirect()->back()->with('error', 'This Pre-Project cannot be approved at this stage');
+        }
+        
+        // Update status to Waiting for EPU Approval
+        $preProject->update([
+            'status' => 'Waiting for EPU Approval'
+        ]);
+        
+        return redirect()->route('pages.pre-project')->with('success', 'Pre-Project approved successfully. Now waiting for EPU approval.');
+    }
+
+    public function preProjectReject($id)
+    {
+        $preProject = \App\Models\PreProject::findOrFail($id);
+        $user = auth()->user();
+        
+        // Get pre-project approvers from settings
+        $preProjectApproversJson = \App\Models\IntegrationSetting::getSetting('approver', 'pre_project_approvers');
+        $preProjectApprovers = $preProjectApproversJson ? json_decode($preProjectApproversJson, true) : [];
+        
+        // Check if current user is an authorized approver
+        if (!in_array($user->id, $preProjectApprovers)) {
+            return redirect()->back()->with('error', 'You are not authorized to reject this Pre-Project');
+        }
+        
+        // Check if Pre-Project is in correct status
+        if ($preProject->status !== 'Waiting for Approval') {
+            return redirect()->back()->with('error', 'This Pre-Project cannot be rejected at this stage');
+        }
+        
+        // Delete the Pre-Project
+        $preProject->delete();
+        
+        return redirect()->route('pages.pre-project')->with('success', 'Pre-Project rejected and deleted successfully');
+    }
+
     public function preProjectEdit($id)
     {
         $preProject = \App\Models\PreProject::with([
@@ -1482,14 +1722,516 @@ class PageController extends Controller
         return view('pages.pre-project-print', compact('preProject'));
     }
 
-    public function preProjectNoc(): View
+    public function projectNoc(): View
     {
-        return view('pages.pre-project-noc');
+        $user = auth()->user();
+        
+        // Filter NOCs based on user's Parliament/DUN
+        $nocsQuery = \App\Models\Noc::with(['parliament', 'dun', 'creator', 'projects']);
+        
+        if ($user->parliament_id) {
+            $nocsQuery->where('parliament_id', $user->parliament_id);
+        } elseif ($user->dun_id) {
+            $nocsQuery->where('dun_id', $user->dun_id);
+        }
+        
+        $nocs = $nocsQuery->orderBy('created_at', 'desc')->get();
+        
+        return view('pages.project-noc', compact('nocs'));
+    }
+
+    public function projectNocCreate(): View
+    {
+        $user = auth()->user();
+        
+        // Get NOC Notes for dropdown
+        $nocNotes = \App\Models\NocNote::where('status', 'Active')->orderBy('name')->get();
+        
+        // Get Agencies for dropdown
+        $agencies = \App\Models\AgencyCategory::where('status', 'Active')->orderBy('name')->get();
+        
+        // Get available projects using Noc::getAvailableProjects()
+        $projects = \App\Models\Noc::getAvailableProjects($user);
+        
+        return view('pages.project-noc-create', compact('projects', 'nocNotes', 'agencies'));
+    }
+
+    public function projectNocStore(Request $request)
+    {
+        $user = auth()->user();
+        
+        $request->validate([
+            'noc_date' => 'required|date',
+            'projects' => 'required|array|min:1',
+            'projects.*.tahun_rtp' => 'required|string',
+            'projects.*.no_projek' => 'nullable|string',
+            'projects.*.noc_note_id' => 'required|exists:noc_notes,id',
+            'noc_letter_attachment' => 'required|file|mimes:pdf|max:5120',
+            'noc_project_list_attachment' => 'required|file|mimes:pdf|max:5120',
+        ]);
+
+        // Handle file uploads
+        $nocLetterPath = null;
+        $nocProjectListPath = null;
+        
+        if ($request->hasFile('noc_letter_attachment')) {
+            $nocLetterPath = $request->file('noc_letter_attachment')->store('noc_attachments', 'public');
+        }
+        
+        if ($request->hasFile('noc_project_list_attachment')) {
+            $nocProjectListPath = $request->file('noc_project_list_attachment')->store('noc_attachments', 'public');
+        }
+
+        // Determine Parliament/DUN from the first imported project (not from user)
+        $parliamentId = null;
+        $dunId = null;
+        
+        // Loop through projects to find the first imported project
+        foreach ($request->projects as $projectData) {
+            if (isset($projectData['project_id']) && $projectData['project_id']) {
+                // Get the project to retrieve its parliament/dun
+                $project = \App\Models\Project::find($projectData['project_id']);
+                if ($project) {
+                    $parliamentId = $project->parliament_id;
+                    $dunId = $project->dun_id;
+                    break; // Use the first imported project's parliament/dun
+                }
+            }
+        }
+
+        $noc = \App\Models\Noc::create([
+            'noc_number' => \App\Models\Noc::generateNocNumber(),
+            'parliament_id' => $parliamentId,
+            'dun_id' => $dunId,
+            'noc_date' => $request->noc_date,
+            'created_by' => auth()->id(),
+            'status' => 'Waiting for Approval 1',
+            'noc_letter_attachment' => $nocLetterPath,
+            'noc_project_list_attachment' => $nocProjectListPath,
+        ]);
+
+        // Process each project (both imported and new)
+        foreach ($request->projects as $projectData) {
+            $projectId = $projectData['project_id'] ?? null;
+            
+            // If this is an imported project, attach it
+            if ($projectId) {
+                $noc->projects()->attach($projectId, [
+                    'tahun_rtp' => $projectData['tahun_rtp'],
+                    'no_projek' => $projectData['no_projek'] ?? null,
+                    'nama_projek_asal' => $projectData['nama_projek_asal'] ?? null,
+                    'nama_projek_baru' => $projectData['nama_projek_baru'] ?? null,
+                    'kos_asal' => $projectData['kos_asal'] ?? null,
+                    'kos_baru' => $projectData['kos_baru'] ?? null,
+                    'agensi_pelaksana_asal' => $projectData['agensi_pelaksana_asal'] ?? null,
+                    'agensi_pelaksana_baru' => $projectData['agensi_pelaksana_baru'] ?? null,
+                    'noc_note_id' => $projectData['noc_note_id'],
+                ]);
+                
+                // Update project status based on NOC note
+                $nocNote = \App\Models\NocNote::find($projectData['noc_note_id']);
+                if ($nocNote) {
+                    // Update project status to the NOC note name
+                    \App\Models\Project::where('id', $projectId)->update(['status' => $nocNote->name]);
+                }
+            } else {
+                // This is a new project - create a record in pivot table without project_id
+                \DB::table('noc_project')->insert([
+                    'noc_id' => $noc->id,
+                    'project_id' => null,
+                    'tahun_rtp' => $projectData['tahun_rtp'],
+                    'no_projek' => $projectData['no_projek'] ?? null,
+                    'nama_projek_asal' => $projectData['nama_projek_asal'] ?? null,
+                    'nama_projek_baru' => $projectData['nama_projek_baru'] ?? null,
+                    'kos_asal' => $projectData['kos_asal'] ?? null,
+                    'kos_baru' => $projectData['kos_baru'] ?? null,
+                    'agensi_pelaksana_asal' => $projectData['agensi_pelaksana_asal'] ?? null,
+                    'agensi_pelaksana_baru' => $projectData['agensi_pelaksana_baru'] ?? null,
+                    'noc_note_id' => $projectData['noc_note_id'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        return redirect()->route('pages.project.noc')->with('success', 'NOC created successfully. Pre-projects will be created after final approval.');
+    }
+
+    public function projectNocShow($id): View
+    {
+        $noc = \App\Models\Noc::with([
+            'parliament', 
+            'dun', 
+            'creator', 
+            'firstApprover', 
+            'secondApprover',
+        ])->findOrFail($id);
+        
+        // Get ALL project entries (including new projects without project_id)
+        $projectEntries = $noc->getAllProjectEntries();
+        
+        return view('pages.project-noc-show', compact('noc', 'projectEntries'));
+    }
+
+    public function projectNocSubmit($id)
+        {
+            $noc = \App\Models\Noc::findOrFail($id);
+
+            // This method is no longer needed since NOC is created with "Waiting for Approval 1" status
+            // But keep it for backward compatibility
+            if ($noc->status !== 'Waiting for Approval 1') {
+                return redirect()->back()->with('error', 'NOC has already been submitted');
+            }
+
+            // Update all imported projects status to 'NOC'
+            foreach ($noc->projects as $project) {
+                $project->update(['status' => 'NOC']);
+            }
+
+            // Process NOC changes and create pre-projects for EPU approval
+            $nocToPreProjectService = app(\App\Services\NocToPreProjectService::class);
+            $createdPreProjects = $nocToPreProjectService->processNocSubmission($noc);
+
+            // Log created pre-projects for tracking
+            if (count($createdPreProjects) > 0) {
+                \Illuminate\Support\Facades\Log::info("NOC {$noc->noc_number} created " . count($createdPreProjects) . " pre-project records for EPU approval");
+            }
+
+            $message = 'NOC is waiting for approval';
+            if (count($createdPreProjects) > 0) {
+                $message .= '. ' . count($createdPreProjects) . ' project change(s) sent to Pre-Project for EPU approval.';
+            }
+
+            return redirect()->route('pages.project.noc.show', $id)->with('success', $message);
+        }
+
+    public function projectNocApprove(Request $request, $id)
+    {
+        $noc = \App\Models\Noc::findOrFail($id);
+        $user = auth()->user();
+        
+        $firstApprover = \App\Models\IntegrationSetting::getSetting('application', 'first_approval_user');
+        $secondApprover = \App\Models\IntegrationSetting::getSetting('application', 'second_approval_user');
+
+        if ($noc->status === 'Waiting for Approval 1' && $user->id == $firstApprover) {
+            $noc->update([
+                'status' => 'Waiting for Approval 2',
+                'first_approver_id' => $user->id,
+                'first_approved_at' => now(),
+                'first_approval_remarks' => $request->remarks,
+            ]);
+            return redirect()->back()->with('success', 'NOC approved (First Approval)');
+        }
+
+        if ($noc->status === 'Waiting for Approval 2' && $user->id == $secondApprover) {
+            $noc->update([
+                'status' => 'Approved',
+                'second_approver_id' => $user->id,
+                'second_approved_at' => now(),
+                'second_approval_remarks' => $request->remarks,
+            ]);
+            
+            // AUTOMATICALLY CREATE PRE-PROJECTS FROM NOC DATA AFTER FINAL APPROVAL
+            $nocService = new \App\Services\NocToPreProjectService();
+            $createdPreProjects = $nocService->processNocSubmission($noc);
+            
+            // Log the created pre-projects
+            \Log::info('NOC approved with pre-projects created', [
+                'noc_id' => $noc->id,
+                'noc_number' => $noc->noc_number,
+                'pre_projects_created' => count($createdPreProjects),
+            ]);
+            
+            return redirect()->back()->with('success', 'NOC approved (Final Approval). ' . count($createdPreProjects) . ' pre-project(s) created successfully.');
+        }
+
+        return redirect()->back()->with('error', 'You are not authorized to approve this NOC');
+    }
+
+    public function projectNocReject(Request $request, $id)
+    {
+        $noc = \App\Models\Noc::findOrFail($id);
+        
+        $noc->update([
+            'status' => 'Rejected',
+            'first_approval_remarks' => $request->remarks,
+        ]);
+
+        // Rollback all imported projects status to 'Active'
+        foreach ($noc->projects as $project) {
+            $project->update(['status' => 'Active']);
+        }
+
+        return redirect()->back()->with('success', 'NOC rejected');
+    }
+
+    public function projectNocPrint($id): View
+    {
+        $noc = \App\Models\Noc::with([
+            'parliament', 
+            'dun', 
+            'creator', 
+            'firstApprover', 
+            'secondApprover',
+        ])->findOrFail($id);
+        
+        // Get ALL project entries (including new projects without project_id)
+        $projectEntries = $noc->getAllProjectEntries();
+        
+        return view('pages.project-noc-print', compact('noc', 'projectEntries'));
+    }
+
+    public function projectNocDelete($id)
+    {
+        $noc = \App\Models\Noc::findOrFail($id);
+        
+        // Only allow deletion of NOCs that are not yet approved
+        if ($noc->status === 'Approved') {
+            return redirect()->back()->with('error', 'Approved NOCs cannot be deleted');
+        }
+
+        // Rollback all imported projects status to 'Active'
+        foreach ($noc->projects as $project) {
+            $project->update(['status' => 'Active']);
+        }
+
+        // Delete attachments
+        if ($noc->noc_letter_attachment && \Storage::disk('public')->exists($noc->noc_letter_attachment)) {
+            \Storage::disk('public')->delete($noc->noc_letter_attachment);
+        }
+        
+        if ($noc->noc_project_list_attachment && \Storage::disk('public')->exists($noc->noc_project_list_attachment)) {
+            \Storage::disk('public')->delete($noc->noc_project_list_attachment);
+        }
+
+        // Delete NOC (cascade will delete pivot table entries)
+        $noc->delete();
+
+        return redirect()->route('pages.project.noc')->with('success', 'NOC deleted successfully. All imported projects have been reverted to Active status.');
     }
 
     public function project(): View
     {
-        return view('pages.project');
+        $user = auth()->user();
+        
+        // Filter projects based on user's Parliament/DUN
+        $projectsQuery = \App\Models\Project::query();
+        
+        if ($user->parliament_id) {
+            $projectsQuery->where('parliament_id', $user->parliament_id);
+        } elseif ($user->dun_id) {
+            $projectsQuery->where('dun_id', $user->dun_id);
+        }
+        
+        // Exclude projects with status "NOC" and "Projek Dibatalkan" - they should appear in Project Cancel tab
+        $projects = $projectsQuery
+            ->whereNotIn('status', ['NOC', 'Projek Dibatalkan'])
+            ->with(['parliament', 'dun'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        return view('pages.project', compact('projects'));
+    }
+
+    public function projectShow($id)
+    {
+        $project = \App\Models\Project::with([
+            'parliament',
+            'dun',
+            'dunBasic',
+            'projectCategory',
+            'division',
+            'district',
+            'parliamentLocation',
+            'landTitleStatus',
+            'agencyCategory',
+            'implementingAgency',
+            'implementationMethod',
+            'projectOwnership',
+            'residenCategory',
+            'nocs' => function($query) {
+                $query->with([
+                    'creator.parliament', 
+                    'creator.dun', 
+                    'parliament', 
+                    'dun',
+                    'firstApprover',  // Load actual first approver
+                    'secondApprover'  // Load actual second approver
+                ])
+                ->orderBy('created_at', 'desc');
+            }
+        ])->findOrFail($id);
+        
+        // Get ALL NOC entries for NOCs that contain this project
+        // This includes both imported projects and "Add New" projects in the same NOC
+        $nocIds = \DB::table('noc_project')
+            ->where('project_id', $id)
+            ->pluck('noc_id')
+            ->unique();
+        
+        $nocChanges = \DB::table('noc_project')
+            ->join('nocs', 'noc_project.noc_id', '=', 'nocs.id')
+            ->leftJoin('noc_notes', 'noc_project.noc_note_id', '=', 'noc_notes.id')
+            ->whereIn('noc_project.noc_id', $nocIds)
+            ->select(
+                'nocs.id as noc_id',
+                'nocs.noc_number',
+                'nocs.noc_date',
+                'nocs.status as noc_status',
+                'nocs.created_at as noc_created_at',
+                'noc_project.*',
+                'noc_notes.name as noc_note_name'
+            )
+            ->orderBy('nocs.created_at', 'desc')
+            ->orderBy('noc_project.id', 'asc')
+            ->get();
+
+        
+        $project->noc_changes = $nocChanges;
+        
+        // Add approver user objects to each NOC for JavaScript access
+        foreach ($project->nocs as $noc) {
+            $noc->first_approver_user = $noc->firstApprover;
+            $noc->second_approver_user = $noc->secondApprover;
+        }
+        
+        return response()->json($project);
+    }
+
+    public function projectEdit($id)
+    {
+        // Return project data as JSON for modal display
+        $project = Project::with([
+            'parliament',
+            'dun',
+            'residenCategory',
+            'agencyCategory',
+            'projectCategory',
+            'division',
+            'district',
+            'parliamentLocation',
+            'landTitleStatus',
+            'implementingAgency',
+            'implementationMethod',
+            'projectOwnership',
+            'nocs' => function($query) {
+                $query->with([
+                    'creator.parliament',
+                    'creator.dun',
+                    'firstApprover',
+                    'secondApprover'
+                ]);
+            }
+        ])->findOrFail($id);
+        
+        // Get NOC changes for this project
+        $nocChanges = [];
+        foreach ($project->nocs as $noc) {
+            $changes = \DB::table('noc_project')
+                ->where('noc_id', $noc->id)
+                ->where('project_id', $project->id)
+                ->get();
+            
+            foreach ($changes as $change) {
+                $nocChanges[] = [
+                    'noc_id' => $noc->id,
+                    'noc_number' => $noc->noc_number,
+                    'tahun_rtp' => $change->tahun_rtp,
+                    'no_projek' => $change->no_projek,
+                    'nama_projek_asal' => $change->nama_projek_asal,
+                    'nama_projek_baru' => $change->nama_projek_baru,
+                    'kos_asal' => $change->kos_asal,
+                    'kos_baru' => $change->kos_baru,
+                    'agensi_pelaksana_asal' => $change->agensi_pelaksana_asal,
+                    'agensi_pelaksana_baru' => $change->agensi_pelaksana_baru,
+                    'noc_note_id' => $change->noc_note_id,
+                    'noc_note_name' => $change->noc_note_id ? \App\Models\NocNote::find($change->noc_note_id)?->name : null,
+                ];
+            }
+        }
+        
+        $projectData = $project->toArray();
+        $projectData['noc_changes'] = $nocChanges;
+        
+        return response()->json($projectData);
+    }
+
+    public function projectCancel(): View
+    {
+        $user = auth()->user();
+        
+        // Get projects with status "Projek Dibatalkan" (Cancelled) OR "NOC"
+        $cancelledProjects = Project::with([
+            'parliament',
+            'dun',
+            'agencyCategory',
+            'projectCategory',
+            'division',
+            'district'
+        ])
+        ->whereIn('status', ['Projek Dibatalkan', 'NOC'])
+        ->orderBy('created_at', 'desc')
+        ->get();
+        
+        return view('pages.project-cancel', compact('cancelledProjects', 'user'));
+    }
+
+    public function projectTransferCreate(): View
+    {
+        $user = auth()->user();
+        
+        // Get pre-projects with status "Waiting for EPU Approval" that haven't been transferred yet
+        $preProjectsQuery = \App\Models\PreProject::query()
+            ->whereDoesntHave('project')
+            ->where('status', 'Waiting for EPU Approval');
+        
+        // Filter by user's Parliament/DUN
+        if ($user->parliament_id) {
+            $preProjectsQuery->where('parliament_id', $user->parliament_id);
+        } elseif ($user->dun_id) {
+            $preProjectsQuery->where('dun_id', $user->dun_id);
+        }
+        
+        $preProjects = $preProjectsQuery->orderBy('created_at', 'desc')->get();
+        
+        return view('pages.project-transfer', compact('preProjects'));
+    }
+
+    public function projectTransferStore(Request $request)
+    {
+        $request->validate([
+            'pre_project_id' => 'required|exists:pre_projects,id',
+            'project_number' => 'required|string|max:255',
+            'project_year' => 'required|string|max:4',
+        ]);
+
+        $preProject = \App\Models\PreProject::findOrFail($request->pre_project_id);
+        
+        // Check if already transferred
+        $transferService = new \App\Services\ProjectTransferService();
+        if (!$transferService->canTransfer($preProject)) {
+            return redirect()->route('pages.project.transfer.create')
+                ->with('error', 'Pre-Project ini sudah ditransfer ke Project.');
+        }
+
+        try {
+            $project = $transferService->transfer(
+                $preProject,
+                $request->project_number,
+                $request->project_year
+            );
+            
+            return redirect()->route('pages.project')
+                ->with('success', 'Pre-Project berjaya ditransfer ke Project. No Projek: ' . $project->project_number);
+        } catch (\Exception $e) {
+            \Log::error('Failed to transfer pre-project to project', [
+                'pre_project_id' => $preProject->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return redirect()->route('pages.project.transfer.create')
+                ->with('error', 'Gagal transfer Pre-Project. Sila cuba lagi.');
+        }
     }
 
     public function contractorAnalysis(): View
@@ -1583,5 +2325,50 @@ class PageController extends Controller
         $method->delete();
 
         return redirect()->route('pages.master-data.implementation-method')->with('success', 'Implementation Method deleted successfully');
+    }
+
+    // Master Data - NOC Note
+    public function masterDataNocNote(): View
+    {
+        $notes = \App\Models\NocNote::orderBy('created_at', 'desc')->get();
+        return view('pages.master-data.noc-note', compact('notes'));
+    }
+
+    public function masterDataNocNoteStore(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:255|unique:noc_notes,code',
+            'description' => 'nullable|string',
+            'status' => 'required|in:Active,Inactive',
+        ]);
+
+        \App\Models\NocNote::create($request->all());
+
+        return redirect()->route('pages.master-data.noc-note')->with('success', 'NOC Note created successfully');
+    }
+
+    public function masterDataNocNoteUpdate(Request $request, $id)
+    {
+        $note = \App\Models\NocNote::findOrFail($id);
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:255|unique:noc_notes,code,' . $id,
+            'description' => 'nullable|string',
+            'status' => 'required|in:Active,Inactive',
+        ]);
+
+        $note->update($request->all());
+
+        return redirect()->route('pages.master-data.noc-note')->with('success', 'NOC Note updated successfully');
+    }
+
+    public function masterDataNocNoteDelete($id)
+    {
+        $note = \App\Models\NocNote::findOrFail($id);
+        $note->delete();
+
+        return redirect()->route('pages.master-data.noc-note')->with('success', 'NOC Note deleted successfully');
     }
 }

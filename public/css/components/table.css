@@ -91,6 +91,14 @@
     color: #28a745;
 }
 
+.action-approve .material-symbols-outlined {
+    color: #28a745;
+}
+
+.action-reject .material-symbols-outlined {
+    color: #dc3545;
+}
+
 .action-view .material-symbols-outlined {
     color: #17a2b8;
 }
@@ -101,4 +109,52 @@
 
 .action-delete .material-symbols-outlined {
     color: #dc3545;
+}
+
+/* Search Section */
+.search-section {
+    padding: 0;
+    background-color: transparent;
+    margin-bottom: 15px;
+}
+
+.search-group {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.search-input {
+    flex: 1;
+    height: 36px;
+    padding: 8px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #333333;
+    background-color: #ffffff;
+    transition: border-color 0.2s ease;
+    box-sizing: border-box;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.search-input::placeholder {
+    color: #999999;
+}
+
+/* Reset button in search group */
+.search-group .btn-reset {
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
 }

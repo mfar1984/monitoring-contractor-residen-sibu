@@ -152,4 +152,20 @@ class PreProject extends Model
     {
         return $this->belongsTo(ProjectOwnership::class);
     }
+
+    /**
+     * Get all NOCs that include this pre-project
+     */
+    public function nocs()
+    {
+        return $this->belongsToMany(Noc::class, 'noc_pre_project');
+    }
+
+    /**
+     * Get the project if this pre-project has been transferred
+     */
+    public function project()
+    {
+        return $this->hasOne(Project::class);
+    }
 }

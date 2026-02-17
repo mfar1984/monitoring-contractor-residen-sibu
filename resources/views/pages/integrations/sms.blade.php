@@ -56,17 +56,23 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="api_key">API Key <span style="color: #dc3545;">*</span></label>
-                        <input type="password" id="api_key" name="api_key" placeholder="{{ isset($settings['api_key']) && $settings['api_key'] ? '••••••••' : 'Enter InfoBlast API key' }}" {{ isset($settings['api_key']) && $settings['api_key'] ? '' : 'required' }}>
-                        @if(isset($settings['api_key']) && $settings['api_key'])
-                            <small style="color: #666666; font-size: 11px; display: block; margin-top: 4px;">Leave blank to keep current API key</small>
+                        <label for="username">Username <span style="color: #dc3545;">*</span></label>
+                        <input type="text" id="username" name="username" value="{{ $settings['username'] ?? '' }}" required>
+                        <small style="color: #666666; font-size: 11px; display: block; margin-top: 4px;">InfoBlast account username</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password <span style="color: #dc3545;">*</span></label>
+                        <input type="password" id="password" name="password" placeholder="{{ isset($settings['password']) && $settings['password'] ? '••••••••' : 'Enter InfoBlast password' }}" {{ isset($settings['password']) && $settings['password'] ? '' : 'required' }}>
+                        @if(isset($settings['password']) && $settings['password'])
+                            <small style="color: #666666; font-size: 11px; display: block; margin-top: 4px;">Leave blank to keep current password</small>
                         @endif
                     </div>
 
                     <div class="form-group">
-                        <label for="sender_id">Sender ID <span style="color: #dc3545;">*</span></label>
-                        <input type="text" id="sender_id" name="sender_id" placeholder="MONITOR" value="{{ $settings['sender_id'] ?? '' }}" required>
-                        <small style="color: #666666; font-size: 11px; display: block; margin-top: 4px;">Sender name that appears in SMS (max 11 characters)</small>
+                        <label for="sender_id">Sender ID / Phone Number <span style="color: #dc3545;">*</span></label>
+                        <input type="text" id="sender_id" name="sender_id" placeholder="084330484" value="{{ $settings['sender_id'] ?? '' }}" required>
+                        <small style="color: #666666; font-size: 11px; display: block; margin-top: 4px;">Phone number or sender name that appears in SMS</small>
                     </div>
 
                     <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
@@ -139,13 +145,37 @@ function sendTestSms() {
     testResult.style.border = '1px solid #bee5eb';
     testResult.textContent = 'Sending test SMS...';
     
-    // Note: Test functionality is disabled for now
-    setTimeout(() => {
-        testResult.style.backgroundColor = '#fff3cd';
-        testResult.style.color = '#856404';
-        testResult.style.border = '1px solid #ffeaa7';
-        testResult.textContent = 'Test functionality is currently disabled. Please save your configuration first.';
-    }, 1000);
+    // Send test SMS via API
+    fetch('{{ route('pages.integrations.sms.test') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            test_phone: testPhone
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            testResult.style.backgroundColor = '#d4edda';
+            testResult.style.color = '#155724';
+            testResult.style.border = '1px solid #c3e6cb';
+            testResult.textContent = data.message;
+        } else {
+            testResult.style.backgroundColor = '#f8d7da';
+            testResult.style.color = '#721c24';
+            testResult.style.border = '1px solid #f5c6cb';
+            testResult.textContent = data.message;
+        }
+    })
+    .catch(error => {
+        testResult.style.backgroundColor = '#f8d7da';
+        testResult.style.color = '#721c24';
+        testResult.style.border = '1px solid #f5c6cb';
+        testResult.textContent = 'Error: ' + error.message;
+    });
 }
 
 // Close modal when clicking outside

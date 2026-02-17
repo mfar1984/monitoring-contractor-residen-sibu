@@ -14,7 +14,6 @@
     <div class="tabs-container">
         <div class="tabs-header">
             <a href="{{ route('pages.pre-project') }}" class="tab-button active">Pre-Project</a>
-            <a href="{{ route('pages.pre-project.noc') }}" class="tab-button">NOC (Notice of Change)</a>
         </div>
         
         <div class="tabs-content">
@@ -24,10 +23,18 @@
             </div>
             @endif
 
+            @php
+                // Show Create button for Admin, Residen, Parliament and DUN users
+                // Hide for Agency and Contractor users
+                $isAdmin = $user->username === 'admin' || $user->role === 'admin';
+                $canCreate = $isAdmin || $user->residen_category_id || $user->parliament_category_id || $user->dun_id;
+                $createButtonText = $canCreate ? 'Create Pre-Project' : '';
+            @endphp
+
             <x-data-table
                 title="Pre-Project"
                 description="Manage pre-project data and information."
-                createButtonText="Create Pre-Project"
+                :createButtonText="$createButtonText"
                 createButtonRoute="#"
                 searchPlaceholder="Search pre-projects..."
                 :columns="['Name', 'Agency', 'Parliament', 'Total Cost (RM)', 'Status', 'Actions']"
@@ -35,27 +42,60 @@
                 :rowsPerPage="10"
             >
                 @forelse($preProjects as $preProject)
-                <tr>
+                <tr @if($preProject->status === 'NOC') style="background-color: #ffe6e6;" @elseif($preProject->status === 'Waiting for Approval') style="background-color: #fff3cd;" @elseif($preProject->status === 'Waiting for EPU Approval') style="background-color: #cce5ff;" @endif>
                     <td>{{ $preProject->name }}</td>
                     <td>{{ $preProject->agencyCategory ? $preProject->agencyCategory->name : '-' }}</td>
                     <td>{{ $preProject->parliament ? $preProject->parliament->name : '-' }}</td>
                     <td>{{ number_format($preProject->total_cost ?? 0, 2) }}</td>
                     <td>
-                        <span class="status-badge {{ $preProject->status === 'Active' ? 'status-active' : 'status-suspended' }}">
-                            {{ $preProject->status }}
-                        </span>
+                        @if($preProject->status === 'NOC')
+                            <span class="status-badge" style="background-color: #dc3545; color: white;">NOC</span>
+                        @elseif($preProject->status === 'Waiting for Approval')
+                            <span class="status-badge" style="background-color: #ffc107; color: #856404;">Waiting for Approval</span>
+                        @elseif($preProject->status === 'Waiting for EPU Approval')
+                            <span class="status-badge" style="background-color: #17a2b8; color: white;">Waiting for EPU Approval</span>
+                        @elseif($preProject->status === 'Approved')
+                            <span class="status-badge status-active">Approved</span>
+                        @else
+                            <span class="status-badge {{ $preProject->status === 'Active' ? 'status-active' : 'status-suspended' }}">
+                                {{ $preProject->status }}
+                            </span>
+                        @endif
                     </td>
                     <td>
                         <div class="action-buttons">
                             <button class="action-btn action-view" title="View" onclick="viewPreProject({{ $preProject->id }})">
                                 <span class="material-symbols-outlined">visibility</span>
                             </button>
-                            <button class="action-btn action-edit" title="Edit" onclick="editPreProject({{ $preProject->id }})">
-                                <span class="material-symbols-outlined">edit</span>
-                            </button>
-                            <button class="action-btn action-delete" title="Delete" onclick="deletePreProject({{ $preProject->id }}, '{{ $preProject->name }}')">
-                                <span class="material-symbols-outlined">delete</span>
-                            </button>
+                            
+                            @php
+                                $preProjectApproversJson = \App\Models\IntegrationSetting::getSetting('approver', 'pre_project_approvers');
+                                $preProjectApprovers = $preProjectApproversJson ? json_decode($preProjectApproversJson, true) : [];
+                                $isApprover = in_array(auth()->id(), $preProjectApprovers);
+                            @endphp
+                            
+                            @if($preProject->status === 'Waiting for Approval' && $isApprover)
+                                <button class="action-btn action-approve" title="Approve" onclick="approvePreProject({{ $preProject->id }}, '{{ $preProject->name }}')">
+                                    <span class="material-symbols-outlined">check_circle</span>
+                                </button>
+                                <button class="action-btn action-reject" title="Reject" onclick="rejectPreProject({{ $preProject->id }}, '{{ $preProject->name }}')">
+                                    <span class="material-symbols-outlined">cancel</span>
+                                </button>
+                            @elseif($preProject->status !== 'NOC' && $preProject->status !== 'Approved')
+                                <button class="action-btn action-edit" title="Edit" onclick="editPreProject({{ $preProject->id }})">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="action-btn action-delete" title="Delete" onclick="deletePreProject({{ $preProject->id }}, '{{ $preProject->name }}')">
+                                    <span class="material-symbols-outlined">delete</span>
+                                </button>
+                            @else
+                                <button class="action-btn" title="Edit" disabled style="opacity: 0.3; cursor: not-allowed;">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="action-btn" title="Delete" disabled style="opacity: 0.3; cursor: not-allowed;">
+                                    <span class="material-symbols-outlined">delete</span>
+                                </button>
+                            @endif
                         </div>
                     </td>
                 </tr>
@@ -387,24 +427,83 @@
 
     <!-- Delete Confirmation Modal -->
     <div class="modal-overlay" id="deleteModal">
-        <div class="modal-container" style="max-width: 400px;">
-            <div class="modal-header">
-                <h3 class="modal-title">Confirm Delete</h3>
-                <button class="modal-close" onclick="closeDeleteModal()">
+        <div class="modal-container" style="max-width: 500px;">
+            <div class="modal-header" style="background-color: #dc3545; color: white; border-radius: 8px 8px 0 0;">
+                <h3 class="modal-title" style="color: white; display: flex; align-items: center; gap: 8px;">
+                    <span class="material-symbols-outlined" style="font-size: 24px; line-height: 1;">warning</span>
+                    Confirm Delete
+                </h3>
+                <button class="modal-close" onclick="closeDeleteModal()" style="color: white;">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
-            <form id="deleteForm" method="POST">
+            <form id="deleteForm" method="POST" onsubmit="return validateDelete()">
                 @csrf
                 @method('DELETE')
-                <div class="modal-body">
-                    <p id="deleteMessage" style="margin: 0; color: #666666;"></p>
+                <div class="modal-body" style="padding: 24px;">
+                    <!-- Warning Icon and Message -->
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background-color: #fee; border-radius: 50%; margin-bottom: 16px;">
+                            <span class="material-symbols-outlined" style="font-size: 36px; color: #dc3545; line-height: 1;">delete_forever</span>
+                        </div>
+                        <p style="margin: 0 0 8px 0; color: #333333; font-size: 16px; font-weight: 600;">
+                            Are you sure you want to delete this pre-project?
+                        </p>
+                        <p id="deleteMessage" style="margin: 0; color: #666666; font-size: 14px; font-weight: 500;"></p>
+                    </div>
+                    
+                    <!-- Warning Box -->
+                    <div style="background: linear-gradient(135deg, #fff3cd 0%, #ffe8a1 100%); border-left: 4px solid #ffc107; border-radius: 6px; padding: 16px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div style="display: flex; align-items: flex-start; gap: 12px;">
+                            <span class="material-symbols-outlined" style="font-size: 24px; color: #856404; flex-shrink: 0; line-height: 1;">info</span>
+                            <div>
+                                <p style="margin: 0 0 4px 0; color: #856404; font-size: 13px; font-weight: 600;">
+                                    This action cannot be undone
+                                </p>
+                                <p style="margin: 0; color: #856404; font-size: 12px;">
+                                    A unique 6-character code has been generated. Please type it below to confirm deletion.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Code Confirmation Input -->
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="deleteConfirmId" style="display: block; margin-bottom: 10px; font-weight: 600; font-size: 13px; color: #333333; text-transform: uppercase; letter-spacing: 0.5px;">
+                            Type Code to Confirm:
+                        </label>
+                        <div style="background-color: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 6px; padding: 14px; margin-bottom: 12px; text-align: center;">
+                            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 10px;">
+                                <span class="material-symbols-outlined" style="font-size: 20px; color: #666666; line-height: 1;">lock</span>
+                                <span style="font-family: 'Courier New', monospace; font-size: 22px; font-weight: 700; color: #dc3545; letter-spacing: 4px;" id="deleteIdDisplay"></span>
+                            </div>
+                        </div>
+                        <input 
+                            type="text" 
+                            id="deleteConfirmId" 
+                            placeholder="Enter code here..." 
+                            style="width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 16px; font-family: 'Courier New', monospace; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; text-align: center; transition: all 0.3s ease;"
+                            autocomplete="off"
+                            maxlength="6"
+                            onfocus="this.style.borderColor='#007bff'; this.style.boxShadow='0 0 0 3px rgba(0,123,255,0.1)';"
+                            onblur="this.style.borderColor='#e0e0e0'; this.style.boxShadow='none';"
+                        >
+                        <div id="deleteError" style="display: none; margin-top: 8px; padding: 8px 12px; background-color: #fee; border-left: 3px solid #dc3545; border-radius: 4px;">
+                            <span style="color: #dc3545; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+                                <span class="material-symbols-outlined" style="font-size: 16px; line-height: 1;">error</span>
+                                <span id="deleteErrorText"></span>
+                            </span>
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
-                    <button type="submit" class="btn" style="background-color: #dc3545; color: white;">
-                        <span class="material-symbols-outlined">delete</span>
-                        Delete
+                <div class="modal-footer" style="padding: 16px 24px; background-color: #f8f9fa; border-radius: 0 0 8px 8px; display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; font-weight: 500; border: none; background-color: #6c757d; color: white; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">
+                        <span class="material-symbols-outlined" style="font-size: 18px; line-height: 1;">close</span>
+                        <span>Cancel</span>
+                    </button>
+                    <button type="submit" id="deleteSubmitBtn" class="btn" style="background-color: #dc3545; color: white; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; font-weight: 500; border: none; border-radius: 6px; opacity: 0.5; cursor: not-allowed; transition: all 0.3s ease;" disabled>
+                        <span class="material-symbols-outlined" style="font-size: 18px; line-height: 1;">delete</span>
+                        <span>Delete Pre-Project</span>
                     </button>
                 </div>
             </form>
@@ -666,6 +765,15 @@ function openCreateModal() {
     document.getElementById('district_id').value = '';
     document.getElementById('parliament_location_id').value = '';
     document.getElementById('dun_id').value = '';
+    
+    // Auto-select Parliament/DUN based on logged-in user
+    @if($user->parliament_id)
+        document.getElementById('parliament_dun_basic').value = 'parliament_{{ $user->parliament_id }}';
+        document.getElementById('parliament_location_id').value = '{{ $user->parliament_id }}';
+    @elseif($user->dun_id)
+        document.getElementById('parliament_dun_basic').value = 'dun_{{ $user->dun_id }}';
+        document.getElementById('dun_id').value = '{{ $user->dun_id }}';
+    @endif
     document.getElementById('land_title_status_id').value = '';
     document.getElementById('implementing_agency_id').value = '';
     document.getElementById('implementation_method_id').value = '';
@@ -774,14 +882,126 @@ function closeModal() {
     document.getElementById('preProjectModal').classList.remove('show');
 }
 
+// Generate random 6-digit alphanumeric code
+function generateDeleteCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude similar looking characters (I, O, 0, 1)
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
+
 function deletePreProject(id, name) {
-    document.getElementById('deleteMessage').textContent = 'Are you sure you want to delete pre-project "' + name + '"?';
+    // Generate unique 6-digit code
+    const deleteCode = generateDeleteCode();
+    window.deleteConfirmCode = deleteCode;
+    window.deletePreProjectId = id;
+    
+    // Update modal content
+    document.getElementById('deleteMessage').textContent = name;
+    document.getElementById('deleteIdDisplay').textContent = deleteCode;
     document.getElementById('deleteForm').action = '/pages/pre-project/' + id;
+    document.getElementById('deleteConfirmId').value = '';
+    document.getElementById('deleteError').style.display = 'none';
+    document.getElementById('deleteSubmitBtn').disabled = true;
+    document.getElementById('deleteSubmitBtn').style.opacity = '0.5';
+    document.getElementById('deleteSubmitBtn').style.cursor = 'not-allowed';
+    document.getElementById('deleteSubmitBtn').style.transform = 'scale(1)';
+    
+    // Show modal
     document.getElementById('deleteModal').classList.add('show');
+    
+    // Focus on input field
+    setTimeout(() => {
+        document.getElementById('deleteConfirmId').focus();
+    }, 100);
 }
 
 function closeDeleteModal() {
     document.getElementById('deleteModal').classList.remove('show');
+    document.getElementById('deleteConfirmId').value = '';
+    document.getElementById('deleteError').style.display = 'none';
+    document.getElementById('deleteSubmitBtn').disabled = true;
+    window.deleteConfirmCode = null;
+}
+
+function validateDelete() {
+    const inputCode = document.getElementById('deleteConfirmId').value.trim().toUpperCase();
+    const expectedCode = window.deleteConfirmCode;
+    
+    if (inputCode !== expectedCode) {
+        document.getElementById('deleteErrorText').textContent = 'Code does not match. Please type the correct code.';
+        document.getElementById('deleteError').style.display = 'block';
+        return false;
+    }
+    
+    return true;
+}
+
+// Enable/disable delete button based on input
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteInput = document.getElementById('deleteConfirmId');
+    const deleteBtn = document.getElementById('deleteSubmitBtn');
+    
+    if (deleteInput && deleteBtn) {
+        deleteInput.addEventListener('input', function() {
+            const inputCode = this.value.trim().toUpperCase();
+            const expectedCode = window.deleteConfirmCode;
+            
+            // Auto-uppercase as user types
+            this.value = inputCode;
+            
+            if (inputCode === expectedCode) {
+                deleteBtn.disabled = false;
+                deleteBtn.style.opacity = '1';
+                deleteBtn.style.cursor = 'pointer';
+                deleteBtn.style.transform = 'scale(1.02)';
+                deleteBtn.style.boxShadow = '0 4px 12px rgba(220, 53, 69, 0.3)';
+                document.getElementById('deleteError').style.display = 'none';
+            } else {
+                deleteBtn.disabled = true;
+                deleteBtn.style.opacity = '0.5';
+                deleteBtn.style.cursor = 'not-allowed';
+                deleteBtn.style.transform = 'scale(1)';
+                deleteBtn.style.boxShadow = 'none';
+            }
+        });
+    }
+});
+
+function approvePreProject(id, name) {
+    if (confirm('Are you sure you want to approve pre-project "' + name + '"?\n\nThis will change the status to "Waiting for EPU Approval".')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/pages/pre-project/' + id + '/approve';
+        
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = '_token';
+        csrfToken.value = '{{ csrf_token() }}';
+        form.appendChild(csrfToken);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function rejectPreProject(id, name) {
+    if (confirm('Are you sure you want to REJECT pre-project "' + name + '"?\n\nWARNING: This will DELETE the pre-project permanently!')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/pages/pre-project/' + id + '/reject';
+        
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = '_token';
+        csrfToken.value = '{{ csrf_token() }}';
+        form.appendChild(csrfToken);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
 }
 
 function viewPreProject(id) {

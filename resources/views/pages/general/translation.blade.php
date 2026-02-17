@@ -37,21 +37,13 @@
                 <!-- Sidebar Tabs (Left) -->
                 <div style="background: white; border: 1px solid #e0e0e0; border-top-left-radius: 8px; border-bottom-left-radius: 8px; border-right: none; padding: 10px;">
                     <div style="display: flex; flex-direction: column; gap: 5px;">
-                        <a href="{{ route('pages.general.translation', ['lang' => 'en']) }}" 
-                           class="language-tab {{ (request('lang', 'en') == 'en') ? 'active' : '' }}"
-                           style="padding: 12px 16px; text-decoration: none; color: #333; border-radius: 4px; transition: all 0.2s; display: block; {{ (request('lang', 'en') == 'en') ? 'background-color: #007bff; color: white;' : 'background-color: transparent;' }}">
-                            English
+                        @foreach($languages as $language)
+                        <a href="{{ route('pages.general.translation', ['lang' => $language->code]) }}" 
+                           class="language-tab {{ (request('lang', 'en') == $language->code) ? 'active' : '' }}"
+                           style="padding: 12px 16px; text-decoration: none; color: #333; border-radius: 4px; transition: all 0.2s; display: block; {{ (request('lang', 'en') == $language->code) ? 'background-color: #007bff; color: white;' : 'background-color: transparent;' }}">
+                            {{ $language->name }}
                         </a>
-                        <a href="{{ route('pages.general.translation', ['lang' => 'ms']) }}" 
-                           class="language-tab {{ (request('lang') == 'ms') ? 'active' : '' }}"
-                           style="padding: 12px 16px; text-decoration: none; color: #333; border-radius: 4px; transition: all 0.2s; display: block; {{ (request('lang') == 'ms') ? 'background-color: #007bff; color: white;' : 'background-color: transparent;' }}">
-                            Bahasa Melayu
-                        </a>
-                        <a href="{{ route('pages.general.translation', ['lang' => 'zh']) }}" 
-                           class="language-tab {{ (request('lang') == 'zh') ? 'active' : '' }}"
-                           style="padding: 12px 16px; text-decoration: none; color: #333; border-radius: 4px; transition: all 0.2s; display: block; {{ (request('lang') == 'zh') ? 'background-color: #007bff; color: white;' : 'background-color: transparent;' }}">
-                            中文 (Chinese)
-                        </a>
+                        @endforeach
                     </div>
                 </div>
 
@@ -59,15 +51,9 @@
                 <div style="background: white; border: 1px solid #e0e0e0; border-top-right-radius: 8px; border-bottom-right-radius: 8px; padding: 20px;">
                     <div style="margin-bottom: 8px;">
                         <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 3px;">
-                            @if(request('lang', 'en') == 'en')
-                                English to English
-                            @elseif(request('lang') == 'ms')
-                                English to Bahasa Melayu
-                            @elseif(request('lang') == 'zh')
-                                English to Chinese (中文)
-                            @endif
+                            English to {{ $languages->firstWhere('code', request('lang', 'en'))->name ?? 'English' }}
                         </h2>
-                        <p style="color: #666; font-size: 12px; margin: 0;">Translate application text to {{ request('lang', 'en') == 'en' ? 'English' : (request('lang') == 'ms' ? 'Bahasa Melayu' : 'Chinese') }}</p>
+                        <p style="color: #666; font-size: 12px; margin: 0;">Translate application text to {{ $languages->firstWhere('code', request('lang', 'en'))->name ?? 'English' }}</p>
                     </div>
 
                     <form method="POST" action="{{ route('pages.general.translation.store') }}">

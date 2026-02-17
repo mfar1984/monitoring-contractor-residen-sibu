@@ -46,9 +46,11 @@
                     <div class="form-group">
                         <label for="locale">Default Language <span style="color: #dc3545;">*</span></label>
                         <select id="locale" name="locale" required>
-                            <option value="en" {{ ($settings['locale'] ?? 'en') == 'en' ? 'selected' : '' }}>English</option>
-                            <option value="ms" {{ ($settings['locale'] ?? '') == 'ms' ? 'selected' : '' }}>Bahasa Melayu</option>
-                            <option value="zh" {{ ($settings['locale'] ?? '') == 'zh' ? 'selected' : '' }}>中文 (Chinese)</option>
+                            @foreach($languages as $language)
+                                <option value="{{ $language->code }}" {{ ($settings['locale'] ?? 'en') == $language->code ? 'selected' : '' }}>
+                                    {{ $language->name }}
+                                </option>
+                            @endforeach
                         </select>
                     </div>
 
@@ -101,6 +103,99 @@
                     </div>
                 </form>
             </div>
+
+            <!-- Language Management Section -->
+            <div style="background: white; padding: 24px; border-radius: 8px; border: 1px solid #e0e0e0; margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 4px 0;">Manage Languages</h3>
+                        <p style="color: #666; font-size: 12px; margin: 0;">Add or remove custom languages for translation</p>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="document.getElementById('addLanguageModal').style.display='flex'">
+                        Add New Language
+                    </button>
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #e0e0e0;">
+                            <th style="text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: #666;">Language Code</th>
+                            <th style="text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: #666;">Language Name</th>
+                            <th style="text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: #666;">Type</th>
+                            <th style="text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: #666;">Status</th>
+                            <th style="text-align: center; padding: 12px; font-size: 12px; font-weight: 600; color: #666;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($languages as $language)
+                        <tr style="border-bottom: 1px solid #e0e0e0;">
+                            <td style="padding: 12px; font-size: 12px;">{{ $language->code }}</td>
+                            <td style="padding: 12px; font-size: 12px;">{{ $language->name }}</td>
+                            <td style="padding: 12px; font-size: 12px;">
+                                @if($language->is_default)
+                                    <span style="background-color: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Default</span>
+                                @else
+                                    <span style="background-color: #f5f5f5; color: #666; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Custom</span>
+                                @endif
+                            </td>
+                            <td style="padding: 12px; font-size: 12px;">
+                                <span style="background-color: {{ $language->status == 'Active' ? '#d4edda' : '#f8d7da' }}; color: {{ $language->status == 'Active' ? '#155724' : '#721c24' }}; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+                                    {{ $language->status }}
+                                </span>
+                            </td>
+                            <td style="padding: 12px; text-align: center;">
+                                @if(!$language->is_default)
+                                    <form method="POST" action="{{ route('pages.general.localization.language.delete', $language->id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this language?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 12px; text-decoration: underline;">
+                                            Delete
+                                        </button>
+                                    </form>
+                                @else
+                                    <span style="color: #999; font-size: 12px;">-</span>
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
+
+    <!-- Add Language Modal -->
+    <div id="addLanguageModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 24px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h3 style="font-size: 18px; font-weight: 600; margin: 0 0 16px 0;">Add New Language</h3>
+            
+            <form method="POST" action="{{ route('pages.general.localization.language.add') }}">
+                @csrf
+                <div class="form-group">
+                    <label for="language_code">Language Code <span style="color: #dc3545;">*</span></label>
+                    <input type="text" id="language_code" name="code" required placeholder="e.g., fr, de, ja" maxlength="10" style="text-transform: lowercase;">
+                    <small style="color: #666; font-size: 11px;">Use 2-3 letter ISO language code (e.g., fr for French, de for German)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="language_name">Language Name <span style="color: #dc3545;">*</span></label>
+                    <input type="text" id="language_name" name="name" required placeholder="e.g., Français, Deutsch, 日本語">
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('addLanguageModal').style.display='none'">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Language</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    // Close modal when clicking outside
+    document.getElementById('addLanguageModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            this.style.display = 'none';
+        }
+    });
+    </script>
 @endsection

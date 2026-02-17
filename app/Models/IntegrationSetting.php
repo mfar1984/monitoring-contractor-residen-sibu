@@ -15,7 +15,31 @@ class IntegrationSetting extends Model
     public static function getSetting($type, $key, $default = null)
     {
         $setting = self::where('type', $type)->where('key', $key)->first();
-        return $setting ? $setting->value : $default;
+        
+        if (!$setting) {
+            return $default;
+        }
+        
+        // Decrypt sensitive fields
+        $sensitiveFields = ['password', 'api_key', 'secret', 'smtp_password', 'api_secret', 'webhook_secret'];
+        
+        $shouldDecrypt = false;
+        foreach ($sensitiveFields as $field) {
+            if (stripos($key, $field) !== false) {
+                $shouldDecrypt = true;
+                break;
+            }
+        }
+        
+        if ($shouldDecrypt && $setting->value) {
+            try {
+                return decrypt($setting->value);
+            } catch (\Exception $e) {
+                return $setting->value;
+            }
+        }
+        
+        return $setting->value;
     }
 
     public static function setSetting($type, $key, $value)

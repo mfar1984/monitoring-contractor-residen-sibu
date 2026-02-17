@@ -13,4 +13,5 @@
     <a href="{{ route('pages.master-data.land-title-status') }}" class="tab-button {{ $active === 'land-title-status' ? 'active' : '' }}">Land Title Status</a>
     <a href="{{ route('pages.master-data.project-ownership') }}" class="tab-button {{ $active === 'project-ownership' ? 'active' : '' }}">Project Ownership</a>
     <a href="{{ route('pages.master-data.implementation-method') }}" class="tab-button {{ $active === 'implementation-method' ? 'active' : '' }}">Implementation Method</a>
+    <a href="{{ route('pages.master-data.noc-note') }}" class="tab-button {{ $active === 'noc-note' ? 'active' : '' }}">NOC Note</a>
 </div>

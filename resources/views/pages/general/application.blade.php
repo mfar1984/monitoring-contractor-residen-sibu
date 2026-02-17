@@ -40,7 +40,88 @@
                 </div>
             </div>
 
+            <!-- Logo Upload Section -->
+            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px;">
+                <h4 style="margin: 0 0 6px 0; font-size: 14px; font-weight: 600; color: #333333;">Logo Settings</h4>
+                <p style="margin: 0 0 16px 0; font-size: 11px; color: #666666;">Click on the logo to upload. Supported formats: PNG, JPG, SVG | Max size: 2MB</p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px;">
+                    <!-- Login Logo -->
+                    <div style="text-align: center;">
+                        <h5 style="margin: 0 0 10px 0; font-size: 12px; font-weight: 600; color: #333333;">Login Page Logo</h5>
+                        <form method="POST" action="{{ route('pages.general.application.store') }}" enctype="multipart/form-data" id="loginLogoForm">
+                            @csrf
+                            <input type="file" id="login_logo" name="login_logo" accept="image/png,image/jpeg,image/jpg,image/svg+xml" style="display: none;" onchange="document.getElementById('loginLogoForm').submit()">
+                            <div onclick="document.getElementById('login_logo').click()" style="width: 80px; height: 80px; border: 2px dashed #e0e0e0; border-radius: 8px; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa; overflow: hidden; cursor: pointer; margin: 0 auto; transition: all 0.3s ease;" onmouseover="this.style.borderColor='#007bff'; this.style.backgroundColor='#e7f3ff'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.backgroundColor='#f8f9fa'">
+                                @if(isset($settings['login_logo']) && $settings['login_logo'])
+                                    <img src="{{ asset('storage/' . $settings['login_logo']) }}" alt="Login Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                @else
+                                    <span class="material-symbols-outlined" style="font-size: 36px; color: #cccccc;">image</span>
+                                @endif
+                            </div>
+                        </form>
+                        <p style="font-size: 10px; color: #999999; margin-top: 6px;">120 x 120 px</p>
+                        @if(isset($settings['login_logo']) && $settings['login_logo'])
+                        <button type="button" class="btn btn-secondary" onclick="removeLoginLogo()" style="padding: 4px 10px; font-size: 10px; margin-top: 6px;">
+                            <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle; margin-right: 3px;">delete</span>
+                            Remove
+                        </button>
+                        @endif
+                    </div>
+
+                    <!-- Login Background Image -->
+                    <div style="text-align: center;">
+                        <h5 style="margin: 0 0 10px 0; font-size: 12px; font-weight: 600; color: #333333;">Login Background Image</h5>
+                        <form method="POST" action="{{ route('pages.general.application.store') }}" enctype="multipart/form-data" id="loginBgForm">
+                            @csrf
+                            <input type="file" id="login_background" name="login_background" accept="image/png,image/jpeg,image/jpg" style="display: none;" onchange="document.getElementById('loginBgForm').submit()">
+                            <div onclick="document.getElementById('login_background').click()" style="width: 80px; height: 80px; border: 2px dashed #e0e0e0; border-radius: 8px; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa; overflow: hidden; cursor: pointer; margin: 0 auto; transition: all 0.3s ease;" onmouseover="this.style.borderColor='#007bff'; this.style.backgroundColor='#e7f3ff'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.backgroundColor='#f8f9fa'">
+                                @if(isset($settings['login_background']) && $settings['login_background'])
+                                    <img src="{{ asset('storage/' . $settings['login_background']) }}" alt="Login Background" style="max-width: 100%; max-height: 100%; object-fit: cover;">
+                                @else
+                                    <span class="material-symbols-outlined" style="font-size: 36px; color: #cccccc;">wallpaper</span>
+                                @endif
+                            </div>
+                        </form>
+                        <p style="font-size: 10px; color: #999999; margin-top: 6px;">1920 x 1080 px</p>
+                        @if(isset($settings['login_background']) && $settings['login_background'])
+                        <button type="button" class="btn btn-secondary" onclick="removeLoginBackground()" style="padding: 4px 10px; font-size: 10px; margin-top: 6px;">
+                            <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle; margin-right: 3px;">delete</span>
+                            Remove
+                        </button>
+                        @endif
+                    </div>
+
+                    <!-- Sidebar Logo -->
+                    <div style="text-align: center;">
+                        <h5 style="margin: 0 0 10px 0; font-size: 12px; font-weight: 600; color: #333333;">Sidebar Logo</h5>
+                        <form method="POST" action="{{ route('pages.general.application.store') }}" enctype="multipart/form-data" id="sidebarLogoForm">
+                            @csrf
+                            <input type="file" id="sidebar_logo" name="sidebar_logo" accept="image/png,image/jpeg,image/jpg,image/svg+xml" style="display: none;" onchange="document.getElementById('sidebarLogoForm').submit()">
+                            <div onclick="document.getElementById('sidebar_logo').click()" style="width: 80px; height: 80px; border: 2px dashed #e0e0e0; border-radius: 8px; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa; overflow: hidden; cursor: pointer; margin: 0 auto; transition: all 0.3s ease;" onmouseover="this.style.borderColor='#007bff'; this.style.backgroundColor='#e7f3ff'" onmouseout="this.style.borderColor='#e0e0e0'; this.style.backgroundColor='#f8f9fa'">
+                                @if(isset($settings['sidebar_logo']) && $settings['sidebar_logo'])
+                                    <img src="{{ asset('storage/' . $settings['sidebar_logo']) }}" alt="Sidebar Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                @else
+                                    <span class="material-symbols-outlined" style="font-size: 36px; color: #cccccc;">image</span>
+                                @endif
+                            </div>
+                        </form>
+                        <p style="font-size: 10px; color: #999999; margin-top: 6px;">40 x 40 px</p>
+                        @if(isset($settings['sidebar_logo']) && $settings['sidebar_logo'])
+                        <button type="button" class="btn btn-secondary" onclick="removeSidebarLogo()" style="padding: 4px 10px; font-size: 10px; margin-top: 6px;">
+                            <span class="material-symbols-outlined" style="font-size: 12px; vertical-align: middle; margin-right: 3px;">delete</span>
+                            Remove
+                        </button>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            <!-- Application Settings Form -->
             <div style="background: white; padding: 24px; border-radius: 8px; border: 1px solid #e0e0e0;">
+                <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #333333;">General Settings</h4>
+                <p style="margin: 0 0 20px 0; font-size: 12px; color: #666666;">Configure basic application settings.</p>
+                
                 <form method="POST" action="{{ route('pages.general.application.store') }}" enctype="multipart/form-data">
                     @csrf
                     <div class="form-group">
@@ -131,5 +212,111 @@ document.addEventListener('DOMContentLoaded', function() {
     sidebarDisplay.addEventListener('change', toggleLogoUpload);
     toggleLogoUpload(); // Initial check
 });
+
+// Login Logo Preview
+function previewLoginLogo(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('login-logo-preview');
+            const placeholder = document.getElementById('login-logo-placeholder');
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            if (placeholder) placeholder.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// Sidebar Logo Preview
+function previewSidebarLogo(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('sidebar-logo-preview');
+            const placeholder = document.getElementById('sidebar-logo-placeholder');
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            if (placeholder) placeholder.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// Remove Login Logo
+function removeLoginLogo() {
+    if (confirm('Are you sure you want to remove the login logo?')) {
+        // Create a form to submit the removal
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ route('pages.general.application.store') }}';
+        
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = '_token';
+        csrfToken.value = '{{ csrf_token() }}';
+        form.appendChild(csrfToken);
+        
+        const removeField = document.createElement('input');
+        removeField.type = 'hidden';
+        removeField.name = 'remove_login_logo';
+        removeField.value = '1';
+        form.appendChild(removeField);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Remove Login Background
+function removeLoginBackground() {
+    if (confirm('Are you sure you want to remove the login background image?')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ route('pages.general.application.store') }}';
+        
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = '_token';
+        csrfToken.value = '{{ csrf_token() }}';
+        form.appendChild(csrfToken);
+        
+        const removeField = document.createElement('input');
+        removeField.type = 'hidden';
+        removeField.name = 'remove_login_background';
+        removeField.value = '1';
+        form.appendChild(removeField);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Remove Sidebar Logo
+function removeSidebarLogo() {
+    if (confirm('Are you sure you want to remove the sidebar logo?')) {
+        // Create a form to submit the removal
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ route('pages.general.application.store') }}';
+        
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = '_token';
+        csrfToken.value = '{{ csrf_token() }}';
+        form.appendChild(csrfToken);
+        
+        const removeField = document.createElement('input');
+        removeField.type = 'hidden';
+        removeField.name = 'remove_sidebar_logo';
+        removeField.value = '1';
+        form.appendChild(removeField);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
 </script>
 @endsection

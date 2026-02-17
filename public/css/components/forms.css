@@ -1,4 +1,6 @@
-/* Form Components */
+/* Form Components CSS */
+
+/* Form Group */
 .form-group {
     margin-bottom: 15px;
 }
@@ -6,37 +8,303 @@
 .form-group label {
     display: block;
     margin-bottom: 5px;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 3px;
+    font-weight: 500;
     font-size: 12px;
+    color: #333333;
 }
 
-/* Search Section */
-.search-section {
-    margin-bottom: 20px;
-}
-
-.search-group {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.search-input {
-    flex: 1;
+/* Text Inputs */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="url"],
+input[type="tel"],
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+textarea {
+    width: 100%;
     padding: 8px 12px;
     border: 1px solid #e0e0e0;
     border-radius: 4px;
     font-size: 12px;
     color: #333333;
+    background-color: #ffffff;
+    transition: border-color 0.2s ease;
+    box-sizing: border-box;
+    height: 36px; /* Increased to 36px to match select */
 }
 
-.search-input:focus {
+/* Textarea specific */
+textarea {
+    height: auto;
+    min-height: 80px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+/* Input Focus State */
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="url"]:focus,
+input[type="tel"]:focus,
+input[type="date"]:focus,
+input[type="time"]:focus,
+input[type="datetime-local"]:focus,
+textarea:focus,
+select:focus {
     outline: none;
     border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* Input Disabled State */
+input:disabled,
+textarea:disabled,
+select:disabled {
+    background-color: #f5f5f5;
+    color: #999999;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Input Placeholder */
+input::placeholder,
+textarea::placeholder {
+    color: #999999;
+    opacity: 1;
+}
+
+/* Select Dropdown */
+select {
+    width: 100%;
+    padding: 16px 32px 16px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #333333;
+    background-color: #ffffff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+    box-sizing: border-box;
+    height: 36px;
+    line-height: 1.5;
+    text-align: left !important;
+}
+
+/* Select with optgroup */
+select option {
+    padding: 10px 12px !important;
+    color: #333333;
+    background-color: #ffffff;
+    line-height: 2 !important;
+    height: auto !important;
+    font-size: 12px !important;
+}
+
+select optgroup {
+    font-weight: 600;
+    font-style: normal;
+    color: #666666;
+    background-color: #f5f5f5;
+    padding: 8px 12px !important;
+    line-height: 2 !important;
+    font-size: 12px !important;
+}
+
+/* Select Hover State */
+select:hover:not(:disabled) {
+    border-color: #007bff;
+}
+
+/* Multiple Select */
+select[multiple] {
+    height: auto;
+    min-height: 100px;
+    padding: 8px 12px;
+    background-image: none;
+}
+
+select[multiple] option {
+    padding: 8px 12px;
+    line-height: 1.8;
+}
+
+select[multiple] option:checked {
+    background-color: #007bff;
+    color: #ffffff;
+}
+
+/* Radio Buttons */
+.radio-group {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: #007bff;
+}
+
+input[type="radio"]:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+.radio-option label {
+    margin: 0;
+    cursor: pointer;
+    font-weight: normal;
+    user-select: none;
+}
+
+/* Checkboxes */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.checkbox-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: #007bff;
+}
+
+input[type="checkbox"]:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+.checkbox-option label {
+    margin: 0;
+    cursor: pointer;
+    font-weight: normal;
+    user-select: none;
+}
+
+/* File Input */
+input[type="file"] {
+    cursor: pointer;
+    padding: 5px 10px !important;
+}
+
+input[type="file"]::file-selector-button {
+    padding: 4px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background-color: #f5f5f5;
+    color: #333333;
+    font-size: 12px;
+    cursor: pointer;
+    margin-right: 10px;
+    transition: background-color 0.2s ease;
+}
+
+input[type="file"]::file-selector-button:hover {
+    background-color: #e0e0e0;
+}
+
+/* Form Validation States */
+input.error,
+textarea.error,
+select.error {
+    border-color: #dc3545;
+}
+
+input.error:focus,
+textarea.error:focus,
+select.error:focus {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+input.success,
+textarea.success,
+select.success {
+    border-color: #28a745;
+}
+
+input.success:focus,
+textarea.success:focus,
+select.success:focus {
+    border-color: #28a745;
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+}
+
+/* Help Text */
+.form-help {
+    display: block;
+    margin-top: 5px;
+    font-size: 11px;
+    color: #666666;
+}
+
+.form-error {
+    display: block;
+    margin-top: 5px;
+    font-size: 11px;
+    color: #dc3545;
+}
+
+.form-success {
+    display: block;
+    margin-top: 5px;
+    font-size: 11px;
+    color: #28a745;
+}
+
+/* Required Field Indicator */
+.required {
+    color: #dc3545;
+    margin-left: 2px;
+}
+
+/* Form Actions */
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .radio-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
 }
