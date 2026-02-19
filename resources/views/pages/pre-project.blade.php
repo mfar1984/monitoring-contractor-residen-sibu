@@ -140,7 +140,7 @@
                 :rowsPerPage="10"
             >
                 @forelse($preProjects as $preProject)
-                <tr @if($preProject->status === 'NOC') style="background-color: #ffe6e6;" @elseif($preProject->status === 'Waiting for Complete Form') style="background-color: #f8f9fa;" @elseif($preProject->status === 'Waiting for Approver 1') style="background-color: #fff3cd;" @elseif($preProject->status === 'Waiting for EPU Approval') style="background-color: #cce5ff;" @endif>
+                <tr @if($preProject->status === 'NOC') style="background-color: #ffe6e6;" @elseif($preProject->status === 'Waiting for Complete Form') style="background-color: #f8f9fa;" @elseif(in_array($preProject->status, ['Waiting for Approval', 'Waiting for Approver 1'])) style="background-color: #fff3cd;" @elseif($preProject->status === 'Waiting for EPU Approval') style="background-color: #cce5ff;" @endif>
                     <td>{{ $preProject->name }}</td>
                     <td>{{ $preProject->agencyCategory ? $preProject->agencyCategory->name : '-' }}</td>
                     <td>{{ $preProject->parliament ? $preProject->parliament->name : ($preProject->dunBasic ? $preProject->dunBasic->name : '-') }}</td>
@@ -150,8 +150,8 @@
                             <span class="status-badge" style="background-color: #dc3545; color: white;">NOC</span>
                         @elseif($preProject->status === 'Waiting for Complete Form')
                             <span class="status-badge" style="background-color: #6c757d; color: white;">Waiting for Complete Form</span>
-                        @elseif($preProject->status === 'Waiting for Approver 1')
-                            <span class="status-badge" style="background-color: #ffc107; color: #856404;">Waiting for Approver 1</span>
+                        @elseif(in_array($preProject->status, ['Waiting for Approval', 'Waiting for Approver 1']))
+                            <span class="status-badge" style="background-color: #ffc107; color: #856404;">Waiting for Approval</span>
                         @elseif($preProject->status === 'Waiting for EPU Approval')
                             <span class="status-badge" style="background-color: #17a2b8; color: white;">Waiting for EPU Approval</span>
                         @elseif($preProject->status === 'Approved')
@@ -163,7 +163,7 @@
                         @endif
                     </td>
                     <td>
-                        @if(in_array($preProject->status, ['Waiting for Complete Form', 'Waiting for Approver 1', 'Waiting for EPU Approval']))
+                        @if(in_array($preProject->status, ['Waiting for Complete Form', 'Waiting for Approval', 'Waiting for Approver 1', 'Waiting for EPU Approval']))
                             <span class="status-badge" style="background-color: {{ $preProject->completeness_color }}; color: white;">
                                 {{ $preProject->completeness_percentage }}%
                             </span>
@@ -178,9 +178,6 @@
                             </button>
                             
                             @php
-                                $preProjectApproversJson = \App\Models\IntegrationSetting::getSetting('approver', 'pre_project_approvers');
-                                $preProjectApprovers = $preProjectApproversJson ? json_decode($preProjectApproversJson, true) : [];
-                                $isApprover = in_array(auth()->id(), $preProjectApprovers);
                                 $isParliamentUser = $user->parliament_category_id || $user->dun_id;
                             @endphp
                             
@@ -203,14 +200,14 @@
                                 <button class="action-btn action-delete" title="Delete" onclick="deletePreProject({{ $preProject->id }}, '{{ $preProject->name }}')">
                                     <span class="material-symbols-outlined">delete</span>
                                 </button>
-                            @elseif($preProject->status === 'Waiting for Approver 1' && $isApprover)
+                            @elseif(in_array($preProject->status, ['Waiting for Approval', 'Waiting for Approver 1']) && $isPreProjectApprover)
                                 <button class="action-btn action-approve" title="Approve" onclick="approvePreProject({{ $preProject->id }}, '{{ $preProject->name }}', '{{ $preProject->status }}')">
                                     <span class="material-symbols-outlined">check_circle</span>
                                 </button>
                                 <button class="action-btn action-reject" title="Reject" onclick="rejectPreProject({{ $preProject->id }}, '{{ $preProject->name }}')">
                                     <span class="material-symbols-outlined">cancel</span>
                                 </button>
-                            @elseif($preProject->status !== 'NOC' && $preProject->status !== 'Approved' && $preProject->status !== 'Waiting for EPU Approval' && $preProject->status !== 'Waiting for Approver 1')
+                            @elseif($preProject->status !== 'NOC' && $preProject->status !== 'Approved' && $preProject->status !== 'Waiting for EPU Approval' && !in_array($preProject->status, ['Waiting for Approval', 'Waiting for Approver 1']))
                                 <button class="action-btn action-edit" title="Edit" onclick="editPreProject({{ $preProject->id }})">
                                     <span class="material-symbols-outlined">edit</span>
                                 </button>

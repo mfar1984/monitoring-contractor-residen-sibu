@@ -35,6 +35,11 @@ class UpdatePreProjectRequest extends FormRequest
                     $budgetService = new BudgetCalculationService();
                     $user = Auth::user();
                     
+                    // Skip budget validation for Residen users
+                    if (!$budgetService->isSubjectToBudgetValidation($user)) {
+                        return;
+                    }
+                    
                     // Get the pre-project being edited
                     $preProjectId = $this->input('id');
                     $preProject = PreProject::find($preProjectId);
@@ -50,10 +55,10 @@ class UpdatePreProjectRequest extends FormRequest
                             return;
                         }
                         
-                        $availableBudget = $budgetService->getAvailableBudgetForEdit($user, $preProject, $year);
-                        
-                        if ($value > $availableBudget) {
-                            $fail("The project cost of RM " . number_format($value, 2) . " exceeds the available budget of RM " . number_format($availableBudget, 2) . " for year {$year}.");
+                        // Check if the new cost would exceed budget (excluding current project cost)
+                        if ($budgetService->wouldExceedBudget($user, $value, $preProject->id, $year)) {
+                            $remainingAfter = $budgetService->getRemainingBudgetAfter($user, $value, $preProject->id, $year);
+                            $fail("The project cost of RM " . number_format($value, 2) . " exceeds the available budget. Remaining budget after this change would be RM " . number_format($remainingAfter, 2) . " for year {$year}.");
                         }
                     }
                 },

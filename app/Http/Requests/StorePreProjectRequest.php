@@ -42,6 +42,11 @@ class StorePreProjectRequest extends FormRequest
                         return;
                     }
                     
+                    // Skip budget validation for Residen users
+                    if (!$budgetService->isSubjectToBudgetValidation($user)) {
+                        return;
+                    }
+                    
                     // Check if budget exists for the selected year
                     $budgetInfo = $budgetService->getUserBudgetInfo($user, $year);
                     if ($budgetInfo['total_budget'] <= 0) {
@@ -49,7 +54,8 @@ class StorePreProjectRequest extends FormRequest
                         return;
                     }
                     
-                    if (!$budgetService->isWithinBudget($user, $value, $year)) {
+                    // Check if project cost would exceed budget
+                    if ($budgetService->wouldExceedBudget($user, $value, null, $year)) {
                         $fail("The project cost of RM " . number_format($value, 2) . " exceeds the remaining budget of RM " . number_format($budgetInfo['remaining_budget'], 2) . " for year {$year}.");
                     }
                 },

@@ -1493,6 +1493,11 @@ class PageController extends Controller
             $residenBudgetInfo = $budgetService->getResidenBudgetInfo($user);
         }
         
+        // Get pre-project approvers
+        $preProjectApproversJson = \App\Models\IntegrationSetting::getSetting('approver', 'pre_project_approvers');
+        $preProjectApprovers = $preProjectApproversJson ? json_decode($preProjectApproversJson, true) : [];
+        $isPreProjectApprover = in_array($user->id, $preProjectApprovers);
+        
         $residenCategories = \App\Models\ResidenCategory::where('status', 'Active')->orderBy('name')->get();
         $agencyCategories = \App\Models\AgencyCategory::where('status', 'Active')->orderBy('name')->get();
         $parliaments = \App\Models\Parliament::where('status', 'Active')->orderBy('name')->get();
@@ -1509,6 +1514,7 @@ class PageController extends Controller
             'preProjects',
             'budgetInfo',
             'residenBudgetInfo',
+            'isPreProjectApprover',
             'residenCategories',
             'agencyCategories',
             'parliaments',
@@ -1658,7 +1664,7 @@ class PageController extends Controller
         }
         
         // Pre-Project only has ONE approval level - directly move to EPU Approval
-        if ($preProject->status === 'Waiting for Approver 1') {
+        if (in_array($preProject->status, ['Waiting for Approval', 'Waiting for Approver 1'])) {
             $preProject->update([
                 'status' => 'Waiting for EPU Approval',
                 'first_approver_id' => $user->id,
@@ -1686,8 +1692,8 @@ class PageController extends Controller
             return redirect()->back()->with('error', 'You are not authorized to reject this Pre-Project');
         }
         
-        // Check if Pre-Project is in approval stage (only Approver 1 for Pre-Project)
-        if ($preProject->status !== 'Waiting for Approver 1') {
+        // Check if Pre-Project is in approval stage
+        if (!in_array($preProject->status, ['Waiting for Approval', 'Waiting for Approver 1'])) {
             return redirect()->back()->with('error', 'This Pre-Project cannot be rejected at this stage');
         }
         
@@ -1795,12 +1801,12 @@ class PageController extends Controller
             
             if ($project && $project->nocs) {
                 foreach ($project->nocs as $noc) {
-                    $pivotData = \DB::table('noc_project')
+                    // Get ALL entries from noc_project table for this NOC (including new projects without project_id)
+                    $allEntries = \DB::table('noc_project')
                         ->where('noc_id', $noc->id)
-                        ->where('project_id', $project->id)
-                        ->first();
+                        ->get();
                     
-                    if ($pivotData) {
+                    foreach ($allEntries as $pivotData) {
                         $nocNote = \App\Models\NocNote::find($pivotData->noc_note_id);
                         $nocChanges[] = [
                             'noc_number' => $noc->noc_number,
@@ -1966,11 +1972,23 @@ class PageController extends Controller
                     'noc_note_id' => $projectData['noc_note_id'],
                 ]);
                 
+                // Get the project
+                $project = \App\Models\Project::find($projectId);
+                
                 // Update project status based on NOC note
                 $nocNote = \App\Models\NocNote::find($projectData['noc_note_id']);
-                if ($nocNote) {
+                if ($nocNote && $project) {
                     // Update project status to the NOC note name
-                    \App\Models\Project::where('id', $projectId)->update(['status' => $nocNote->name]);
+                    $project->update(['status' => $nocNote->name]);
+                    
+                    // CRITICAL: Update related pre-project status to "NOC" to exclude from budget calculation
+                    // This ensures pre-projects are marked as "NOC" and excluded from budget tracking
+                    if ($project->pre_project_id) {
+                        $preProject = \App\Models\PreProject::find($project->pre_project_id);
+                        if ($preProject) {
+                            $preProject->update(['status' => 'NOC']);
+                        }
+                    }
                 }
             } else {
                 // This is a new project - create a record in pivot table without project_id
@@ -2098,6 +2116,15 @@ class PageController extends Controller
         // Rollback all imported projects status to 'Active'
         foreach ($noc->projects as $project) {
             $project->update(['status' => 'Active']);
+            
+            // CRITICAL: Rollback related pre-project status to "Approved"
+            // This ensures pre-projects are included back in budget calculation when NOC is rejected
+            if ($project->pre_project_id) {
+                $preProject = \App\Models\PreProject::find($project->pre_project_id);
+                if ($preProject) {
+                    $preProject->update(['status' => 'Approved']);
+                }
+            }
         }
 
         return redirect()->back()->with('success', 'NOC rejected');
@@ -2131,6 +2158,15 @@ class PageController extends Controller
         // Rollback all imported projects status to 'Active'
         foreach ($noc->projects as $project) {
             $project->update(['status' => 'Active']);
+            
+            // CRITICAL: Rollback related pre-project status to "Approved"
+            // This ensures pre-projects are included back in budget calculation
+            if ($project->pre_project_id) {
+                $preProject = \App\Models\PreProject::find($project->pre_project_id);
+                if ($preProject) {
+                    $preProject->update(['status' => 'Approved']);
+                }
+            }
         }
 
         // Delete attachments

@@ -59,9 +59,13 @@ class BudgetCalculationService
                     $sourceName = $parliament->name;
                     
                     // Calculate total allocated for this Parliament in this year
+                    // Exclude pre-projects that have been cancelled in projects table
                     $totalAllocated = PreProject::where('parliament_id', $parliamentId)
                         ->where('project_year', $year)
                         ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                        ->whereDoesntHave('project', function($query) {
+                            $query->where('status', 'Projek Dibatalkan');
+                        })
                         ->sum('total_cost');
                 }
             }
@@ -82,9 +86,13 @@ class BudgetCalculationService
                     $sourceName = $dun->name;
                     
                     // Calculate total allocated for this DUN in this year
+                    // Exclude pre-projects that have been cancelled in projects table
                     $totalAllocated = PreProject::where('dun_id', $dunId)
                         ->where('project_year', $year)
                         ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                        ->whereDoesntHave('project', function($query) {
+                            $query->where('status', 'Projek Dibatalkan');
+                        })
                         ->sum('total_cost');
                 }
             }
@@ -201,16 +209,18 @@ class BudgetCalculationService
      * @param User $user
      * @param float $projectCost
      * @param int|null $excludePreProjectId (for edit scenarios)
+     * @param int|null $year (defaults to current year)
      * @return bool
      */
-    public function wouldExceedBudget(User $user, float $projectCost, ?int $excludePreProjectId = null): bool
+    public function wouldExceedBudget(User $user, float $projectCost, ?int $excludePreProjectId = null, ?int $year = null): bool
     {
         // Residen users are not subject to budget validation
         if (!$this->isSubjectToBudgetValidation($user)) {
             return false;
         }
         
-        $budgetData = $this->getUserBudgetData($user);
+        $year = $year ?? date('Y');
+        $budgetData = $this->getUserBudgetData($user, $year);
         
         if (!$budgetData) {
             return false; // No budget data, allow creation
@@ -237,11 +247,13 @@ class BudgetCalculationService
      * @param User $user
      * @param float $projectCost
      * @param int|null $excludePreProjectId
+     * @param int|null $year (defaults to current year)
      * @return float
      */
-    public function getRemainingBudgetAfter(User $user, float $projectCost, ?int $excludePreProjectId = null): float
+    public function getRemainingBudgetAfter(User $user, float $projectCost, ?int $excludePreProjectId = null, ?int $year = null): float
     {
-        $budgetData = $this->getUserBudgetData($user);
+        $year = $year ?? date('Y');
+        $budgetData = $this->getUserBudgetData($user, $year);
         
         if (!$budgetData) {
             return 0.0;
@@ -309,17 +321,23 @@ class BudgetCalculationService
                 ->sum('budget');
             
             // Calculate total allocated to Parliament pre-projects
-            $totalAllocatedParliament = DB::table('pre_projects')
-                ->whereNotNull('parliament_id')
+            // Exclude pre-projects that have been cancelled in projects table
+            $totalAllocatedParliament = PreProject::whereNotNull('parliament_id')
                 ->where('project_year', $year)
                 ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                ->whereDoesntHave('project', function($query) {
+                    $query->where('status', 'Projek Dibatalkan');
+                })
                 ->sum('total_cost');
             
             // Calculate total allocated to DUN pre-projects
-            $totalAllocatedDun = DB::table('pre_projects')
-                ->whereNotNull('dun_id')
+            // Exclude pre-projects that have been cancelled in projects table
+            $totalAllocatedDun = PreProject::whereNotNull('dun_id')
                 ->where('project_year', $year)
                 ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                ->whereDoesntHave('project', function($query) {
+                    $query->where('status', 'Projek Dibatalkan');
+                })
                 ->sum('total_cost');
             
             // Calculate remaining budget
