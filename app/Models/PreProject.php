@@ -11,6 +11,7 @@ class PreProject extends Model
 
     protected $fillable = [
         'name',
+        'project_year',
         'residen_category_id',
         'agency_category_id',
         'parliament_id',

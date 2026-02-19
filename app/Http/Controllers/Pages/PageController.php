@@ -633,41 +633,59 @@ class PageController extends Controller
 
     public function masterDataParliaments(): View
     {
-        $parliaments = \App\Models\Parliament::orderBy('created_at', 'desc')->get();
+        $parliaments = \App\Models\Parliament::with('budgets')->orderBy('created_at', 'desc')->get();
         return view('pages.master-data.parliaments', compact('parliaments'));
     }
 
-    public function masterDataParliamentsStore(Request $request)
+    public function masterDataParliamentsStore(\App\Http\Requests\StoreParliamentRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|max:255|unique:parliaments,code',
-            'budget' => 'required|numeric|min:0',
-            'description' => 'nullable|string',
-            'status' => 'required|in:Active,Inactive',
+        // Create the Parliament record
+        $parliament = \App\Models\Parliament::create([
+            'name' => $request->name,
+            'code' => $request->code,
+            'description' => $request->description,
+            'status' => $request->status,
         ]);
 
-        \App\Models\Parliament::create($request->all());
+        // Create budget entries for each year
+        foreach ($request->budgets as $budgetEntry) {
+            \App\Models\ParliamentBudget::create([
+                'parliament_id' => $parliament->id,
+                'year' => $budgetEntry['year'],
+                'budget' => $budgetEntry['budget'],
+            ]);
+        }
 
         return redirect()->route('pages.master-data.parliaments')->with('success', 'Parliament created successfully');
     }
 
-    public function masterDataParliamentsUpdate(Request $request, $id)
-    {
-        $parliament = \App\Models\Parliament::findOrFail($id);
+    public function masterDataParliamentsUpdate(\App\Http\Requests\UpdateParliamentRequest $request, $id)
+        {
+            $parliament = \App\Models\Parliament::findOrFail($id);
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|max:255|unique:parliaments,code,' . $id,
-            'budget' => 'required|numeric|min:0',
-            'description' => 'nullable|string',
-            'status' => 'required|in:Active,Inactive',
-        ]);
+            // Update the Parliament record
+            $parliament->update([
+                'name' => $request->name,
+                'code' => $request->code,
+                'description' => $request->description,
+                'status' => $request->status,
+            ]);
 
-        $parliament->update($request->all());
+            // Delete existing budget entries
+            \App\Models\ParliamentBudget::where('parliament_id', $parliament->id)->delete();
 
-        return redirect()->route('pages.master-data.parliaments')->with('success', 'Parliament updated successfully');
-    }
+            // Create new budget entries from the budgets array
+            foreach ($request->budgets as $budgetEntry) {
+                \App\Models\ParliamentBudget::create([
+                    'parliament_id' => $parliament->id,
+                    'year' => $budgetEntry['year'],
+                    'budget' => $budgetEntry['budget'],
+                ]);
+            }
+
+            return redirect()->route('pages.master-data.parliaments')->with('success', 'Parliament updated successfully');
+        }
+
 
     public function masterDataParliamentsDelete($id)
     {
@@ -679,38 +697,57 @@ class PageController extends Controller
 
     public function masterDataDuns(): View
     {
-        $duns = \App\Models\Dun::orderBy('created_at', 'desc')->get();
+        $duns = \App\Models\Dun::with('budgets')->orderBy('created_at', 'desc')->get();
         return view('pages.master-data.duns', compact('duns'));
     }
 
-    public function masterDataDunsStore(Request $request)
+    public function masterDataDunsStore(\App\Http\Requests\StoreDunRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'budget' => 'required|numeric|min:0',
-            'code' => 'required|string|max:255|unique:duns,code',
-            'description' => 'nullable|string',
-            'status' => 'required|in:Active,Inactive',
+        // Create the DUN record
+        $dun = \App\Models\Dun::create([
+            'parliament_id' => $request->parliament_id,
+            'name' => $request->name,
+            'code' => $request->code,
+            'description' => $request->description,
+            'status' => $request->status,
         ]);
 
-        \App\Models\Dun::create($request->all());
+        // Create budget entries for each year
+        foreach ($request->budgets as $budgetEntry) {
+            \App\Models\DunBudget::create([
+                'dun_id' => $dun->id,
+                'year' => $budgetEntry['year'],
+                'budget' => $budgetEntry['budget'],
+            ]);
+        }
 
         return redirect()->route('pages.master-data.duns')->with('success', 'DUN created successfully');
     }
 
-    public function masterDataDunsUpdate(Request $request, $id)
+    public function masterDataDunsUpdate(\App\Http\Requests\UpdateDunRequest $request, $id)
     {
         $dun = \App\Models\Dun::findOrFail($id);
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'budget' => 'required|numeric|min:0',
-            'code' => 'required|string|max:255|unique:duns,code,' . $id,
-            'description' => 'nullable|string',
-            'status' => 'required|in:Active,Inactive',
+        // Update the DUN record
+        $dun->update([
+            'parliament_id' => $request->parliament_id,
+            'name' => $request->name,
+            'code' => $request->code,
+            'description' => $request->description,
+            'status' => $request->status,
         ]);
 
-        $dun->update($request->all());
+        // Delete existing budget entries
+        \App\Models\DunBudget::where('dun_id', $dun->id)->delete();
+
+        // Create new budget entries from the budgets array
+        foreach ($request->budgets as $budgetEntry) {
+            \App\Models\DunBudget::create([
+                'dun_id' => $dun->id,
+                'year' => $budgetEntry['year'],
+                'budget' => $budgetEntry['budget'],
+            ]);
+        }
 
         return redirect()->route('pages.master-data.duns')->with('success', 'DUN updated successfully');
     }
@@ -1427,7 +1464,8 @@ class PageController extends Controller
         $preProjects = \App\Models\PreProject::with([
             'residenCategory', 
             'agencyCategory', 
-            'parliament', 
+            'parliament',
+            'dunBasic',
             'projectCategory',
             'division',
             'district',
@@ -1781,6 +1819,17 @@ class PageController extends Controller
         $preProject->nocs = $nocs;
         
         return response()->json($preProject);
+    }
+
+    public function preProjectBudgetInfo(Request $request)
+    {
+        $user = auth()->user();
+        $year = $request->input('year', now()->year);
+        
+        $budgetService = new \App\Services\BudgetCalculationService();
+        $budgetInfo = $budgetService->getUserBudgetInfo($user, $year);
+        
+        return response()->json($budgetInfo);
     }
 
     public function preProjectPrint($id): View

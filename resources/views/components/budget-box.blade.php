@@ -1,12 +1,32 @@
-@props(['totalBudget', 'allocatedBudget', 'remainingBudget', 'sourceName'])
+@props(['year' => null])
+
+@php
+    // Default to current year if not provided
+    $year = $year ?? now()->year;
+    
+    // Get budget information from BudgetCalculationService
+    $budgetInfo = app(\App\Services\BudgetCalculationService::class)
+        ->getUserBudgetInfo(Auth::user(), $year);
+    
+    $totalBudget = $budgetInfo['total_budget'];
+    $allocatedBudget = $budgetInfo['allocated_budget'];
+    $remainingBudget = $budgetInfo['remaining_budget'];
+    $sourceName = $budgetInfo['source_name'];
+@endphp
 
 <div style="margin-bottom: 20px;">
+    <!-- Year Header -->
+    <div style="margin-bottom: 10px; font-size: 14px; font-weight: 600; color: #333;">
+        Budget for Year {{ $year }}
+    </div>
+    
+    <!-- No Budget Warning -->
     @if($totalBudget == 0)
         <div style="padding: 15px; text-align: center; color: #856404; background-color: #fff3cd; border-radius: 4px; margin-bottom: 15px; border: 1px solid #ffeaa7;">
             <span class="material-symbols-outlined" style="font-size: 24px; vertical-align: middle;">warning</span>
-            <strong>No budget allocated for your constituency.</strong>
+            <strong>No budget allocated for year {{ $year }}.</strong>
             <br>
-            <small>Please contact administrator to set up budget allocation.</small>
+            <small>Please contact administrator to set up budget allocation for this year.</small>
         </div>
     @endif
     

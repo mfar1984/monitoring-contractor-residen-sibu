@@ -23,14 +23,9 @@
             </div>
             @endif
 
-            {{-- Budget Box Component --}}
+            {{-- Budget Box Component - Shows current year budget by default --}}
             @if(isset($budgetInfo) && $budgetInfo['source_name'])
-                <x-budget-box 
-                    :totalBudget="$budgetInfo['total_budget']"
-                    :allocatedBudget="$budgetInfo['allocated_budget']"
-                    :remainingBudget="$budgetInfo['remaining_budget']"
-                    :sourceName="$budgetInfo['source_name']"
-                />
+                <x-budget-box :year="$budgetInfo['year'] ?? now()->year" />
             @endif
 
             @php
@@ -62,7 +57,7 @@
                 <tr @if($preProject->status === 'NOC') style="background-color: #ffe6e6;" @elseif($preProject->status === 'Waiting for Complete Form') style="background-color: #f8f9fa;" @elseif($preProject->status === 'Waiting for Approver 1') style="background-color: #fff3cd;" @elseif($preProject->status === 'Waiting for EPU Approval') style="background-color: #cce5ff;" @endif>
                     <td>{{ $preProject->name }}</td>
                     <td>{{ $preProject->agencyCategory ? $preProject->agencyCategory->name : '-' }}</td>
-                    <td>{{ $preProject->parliament ? $preProject->parliament->name : '-' }}</td>
+                    <td>{{ $preProject->parliament ? $preProject->parliament->name : ($preProject->dunBasic ? $preProject->dunBasic->name : '-') }}</td>
                     <td>{{ number_format($preProject->total_cost ?? 0, 2) }}</td>
                     <td>
                         @if($preProject->status === 'NOC')
@@ -175,9 +170,21 @@
                     <div style="margin-bottom: 20px;">
                         <h4 style="margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; color: #333333; font-size: 12px; font-weight: 600;">Basic Information</h4>
                         
-                        <div class="form-group">
-                            <label for="name">Project Name <span style="color: #dc3545;">*</span></label>
-                            <input type="text" id="name" name="name" required>
+                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label for="name">Project Name <span style="color: #dc3545;">*</span></label>
+                                <input type="text" id="name" name="name" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="project_year">Project Year <span style="color: #dc3545;">*</span></label>
+                                <select id="project_year" name="project_year" required onchange="updateBudgetForYear()">
+                                    <option value="">Select Year</option>
+                                    @for($year = 2024; $year <= 2030; $year++)
+                                    <option value="{{ $year }}" {{ $year == now()->year ? 'selected' : '' }}>{{ $year }}</option>
+                                    @endfor
+                                </select>
+                            </div>
                         </div>
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
@@ -1056,6 +1063,45 @@ function updateBudgetReminder(enteredCost) {
     }
 }
 
+function updateBudgetForYear() {
+    const selectedYear = document.getElementById('project_year').value;
+    if (!selectedYear) {
+        return;
+    }
+    
+    // Fetch budget info for the selected year
+    fetch('/pages/pre-project/budget-info?year=' + selectedYear)
+        .then(response => response.json())
+        .then(data => {
+            const totalCostDisplay = document.getElementById('total_cost_display');
+            const budgetAmount = document.getElementById('budget-amount');
+            const budgetText = document.getElementById('budget-text');
+            
+            if (totalCostDisplay && budgetAmount) {
+                totalCostDisplay.dataset.remainingBudget = data.remaining_budget || 0;
+                budgetAmount.textContent = parseFloat(data.remaining_budget || 0).toFixed(2);
+                
+                // Update budget text
+                if (budgetText) {
+                    const isEditMode = document.getElementById('preProjectId').value !== '';
+                    if (isEditMode) {
+                        const originalCost = parseFloat(totalCostDisplay.dataset.originalCost) || 0;
+                        const availableBudget = parseFloat(data.remaining_budget || 0) + originalCost;
+                        budgetText.innerHTML = 'Available for this project: RM <span id="budget-amount">' + availableBudget.toFixed(2) + '</span>';
+                    } else {
+                        budgetText.innerHTML = 'Remaining budget: RM <span id="budget-amount">' + parseFloat(data.remaining_budget || 0).toFixed(2) + '</span>';
+                    }
+                }
+                
+                // Recalculate total to update budget reminder
+                calculateTotal();
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching budget info:', error);
+        });
+}
+
 function openCreateModal() {
     document.getElementById('modalTitle').textContent = 'Create Pre-Project';
     document.getElementById('preProjectForm').action = '{{ route("pages.pre-project.store") }}';
@@ -1064,6 +1110,7 @@ function openCreateModal() {
     
     // Reset all form fields
     document.getElementById('name').value = '';
+    document.getElementById('project_year').value = '{{ now()->year }}'; // Default to current year
     document.getElementById('residen_category_id').value = '';
     document.getElementById('agency_category_id').value = '';
     document.getElementById('parliament_dun_basic').value = '';
@@ -1165,6 +1212,7 @@ function editPreProject(id) {
             
             // Populate form fields
             document.getElementById('name').value = data.name || '';
+            document.getElementById('project_year').value = data.project_year || '{{ now()->year }}';
             document.getElementById('residen_category_id').value = data.residen_category_id || '';
             document.getElementById('agency_category_id').value = data.agency_category_id || '';
             
@@ -1236,14 +1284,8 @@ function editPreProject(id) {
                 totalCostDisplay.dataset.originalCost = data.total_cost || 0;
             }
             
-            // Update budget text for edit mode
-            const budgetText = document.getElementById('budget-text');
-            if (budgetText) {
-                const remainingBudget = parseFloat(totalCostDisplay.dataset.remainingBudget) || 0;
-                const originalCost = parseFloat(data.total_cost) || 0;
-                const availableBudget = remainingBudget + originalCost;
-                budgetText.innerHTML = 'Available for this project: RM <span id="budget-amount">' + availableBudget.toFixed(2) + '</span>';
-            }
+            // Fetch budget info for the project's year
+            updateBudgetForYear();
             
             calculateTotal();
             document.getElementById('preProjectModal').classList.add('show');

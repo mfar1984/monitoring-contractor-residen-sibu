@@ -20,20 +20,25 @@ class BudgetCalculationService
      * Get budget information for a user
      * 
      * Retrieves the total budget, allocated budget, and remaining budget
-     * for the user's Parliament or DUN constituency.
+     * for the user's Parliament or DUN constituency for a specific year.
      * 
      * @param User $user The authenticated user
+     * @param int|null $year The fiscal year (defaults to current year)
      * @return array [
      *   'total_budget' => float,
      *   'allocated_budget' => float,
      *   'remaining_budget' => float,
      *   'source_type' => string ('parliament' or 'dun'),
      *   'source_name' => string,
-     *   'source_id' => int
+     *   'source_id' => int,
+     *   'year' => int
      * ]
      */
-    public function getUserBudgetInfo(User $user): array
+    public function getUserBudgetInfo(User $user, ?int $year = null): array
     {
+        // Default to current year if not specified
+        $year = $year ?? now()->year;
+        
         $totalBudget = 0;
         $allocatedBudget = 0;
         $sourceType = null;
@@ -45,8 +50,8 @@ class BudgetCalculationService
             if ($user->parliament_id) {
                 $parliament = Parliament::find($user->parliament_id);
                 if ($parliament) {
-                    $totalBudget = (float) ($parliament->budget ?? 0);
-                    $allocatedBudget = $this->calculateAllocatedBudget('parliament', $user->parliament_id);
+                    $totalBudget = (float) $parliament->getBudgetForYear($year);
+                    $allocatedBudget = $this->calculateAllocatedBudget('parliament', $user->parliament_id, $year);
                     $sourceType = 'parliament';
                     $sourceName = $parliament->name;
                     $sourceId = $parliament->id;
@@ -56,8 +61,8 @@ class BudgetCalculationService
             elseif ($user->dun_id) {
                 $dun = Dun::find($user->dun_id);
                 if ($dun) {
-                    $totalBudget = (float) ($dun->budget ?? 0);
-                    $allocatedBudget = $this->calculateAllocatedBudget('dun', $user->dun_id);
+                    $totalBudget = (float) $dun->getBudgetForYear($year);
+                    $allocatedBudget = $this->calculateAllocatedBudget('dun', $user->dun_id, $year);
                     $sourceType = 'dun';
                     $sourceName = $dun->name;
                     $sourceId = $dun->id;
@@ -73,10 +78,12 @@ class BudgetCalculationService
                 'source_type' => $sourceType,
                 'source_name' => $sourceName,
                 'source_id' => $sourceId,
+                'year' => $year,
             ];
         } catch (\Exception $e) {
             Log::error('Budget calculation failed for user', [
                 'user_id' => $user->id,
+                'year' => $year,
                 'error' => $e->getMessage()
             ]);
 
@@ -87,6 +94,7 @@ class BudgetCalculationService
                 'source_type' => null,
                 'source_name' => '',
                 'source_id' => null,
+                'year' => $year,
             ];
         }
     }
@@ -99,11 +107,15 @@ class BudgetCalculationService
      * 
      * @param string $type 'parliament' or 'dun'
      * @param int $id Parliament or DUN ID
+     * @param int|null $year The fiscal year to filter by (defaults to current year)
      * @return float Total allocated budget
      */
-    public function calculateAllocatedBudget(string $type, int $id): float
+    public function calculateAllocatedBudget(string $type, int $id, ?int $year = null): float
     {
         try {
+            // Default to current year if not specified
+            $year = $year ?? now()->year;
+            
             $query = PreProject::query();
 
             if ($type === 'parliament') {
@@ -113,6 +125,9 @@ class BudgetCalculationService
             } else {
                 return 0;
             }
+
+            // Filter by project year
+            $query->where('project_year', $year);
 
             // Exclude cancelled and rejected projects
             $query->whereNotIn('status', ['Cancelled', 'Rejected']);
@@ -124,6 +139,7 @@ class BudgetCalculationService
             Log::error('Allocated budget calculation failed', [
                 'type' => $type,
                 'id' => $id,
+                'year' => $year,
                 'error' => $e->getMessage()
             ]);
 
@@ -134,18 +150,20 @@ class BudgetCalculationService
     /**
      * Check if a cost amount is within remaining budget
      * 
-     * Validates whether a proposed cost fits within the available budget.
+     * Validates whether a proposed cost fits within the available budget for a specific year.
      * For edit operations, excludes the original project cost from calculation.
      * 
      * @param User $user The authenticated user
      * @param float $cost The proposed cost
+     * @param int $year The fiscal year to validate against
      * @param int|null $excludePreProjectId Pre-project ID to exclude (for edit operations)
      * @return bool True if within budget, false otherwise
      */
-    public function isWithinBudget(User $user, float $cost, ?int $excludePreProjectId = null): bool
+    public function isWithinBudget(User $user, float $cost, int $year, ?int $excludePreProjectId = null): bool
     {
         try {
-            $budgetInfo = $this->getUserBudgetInfo($user);
+            // Get budget info for the specified year
+            $budgetInfo = $this->getUserBudgetInfo($user, $year);
             $availableBudget = $budgetInfo['remaining_budget'];
 
             // For edit operations, add back the original project cost
@@ -161,6 +179,7 @@ class BudgetCalculationService
             Log::error('Budget validation failed', [
                 'user_id' => $user->id,
                 'cost' => $cost,
+                'year' => $year,
                 'exclude_id' => $excludePreProjectId,
                 'error' => $e->getMessage()
             ]);
@@ -172,17 +191,19 @@ class BudgetCalculationService
     /**
      * Get available budget for editing a pre-project
      * 
-     * Calculates how much budget is available for a specific pre-project edit.
+     * Calculates how much budget is available for a specific pre-project edit for a given year.
      * This includes the current remaining budget plus the original project cost.
      * 
      * @param User $user The authenticated user
      * @param PreProject $preProject The pre-project being edited
+     * @param int $year The fiscal year to calculate for
      * @return float Available budget for this project
      */
-    public function getAvailableBudgetForEdit(User $user, PreProject $preProject): float
+    public function getAvailableBudgetForEdit(User $user, PreProject $preProject, int $year): float
     {
         try {
-            $budgetInfo = $this->getUserBudgetInfo($user);
+            // Get budget info for the specified year
+            $budgetInfo = $this->getUserBudgetInfo($user, $year);
             $remainingBudget = $budgetInfo['remaining_budget'];
             $originalCost = (float) $preProject->total_cost;
 
@@ -191,6 +212,7 @@ class BudgetCalculationService
             Log::error('Available budget calculation failed for edit', [
                 'user_id' => $user->id,
                 'pre_project_id' => $preProject->id,
+                'year' => $year,
                 'error' => $e->getMessage()
             ]);
 

@@ -25,6 +25,7 @@ class StorePreProjectRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255',
+            'project_year' => 'required|integer|min:2024|max:2030',
             'total_cost' => [
                 'required',
                 'numeric',
@@ -33,9 +34,23 @@ class StorePreProjectRequest extends FormRequest
                     $budgetService = new BudgetCalculationService();
                     $user = Auth::user();
                     
-                    if (!$budgetService->isWithinBudget($user, $value)) {
-                        $budgetInfo = $budgetService->getUserBudgetInfo($user);
-                        $fail("Budget exceeded. Remaining budget: RM " . number_format($budgetInfo['remaining_budget'], 2));
+                    // Get the project year from the request
+                    $year = $this->input('project_year');
+                    
+                    if (!$year) {
+                        $fail('Project year is required for budget validation.');
+                        return;
+                    }
+                    
+                    // Check if budget exists for the selected year
+                    $budgetInfo = $budgetService->getUserBudgetInfo($user, $year);
+                    if ($budgetInfo['total_budget'] <= 0) {
+                        $fail("No budget has been allocated for year {$year}. Please contact your administrator.");
+                        return;
+                    }
+                    
+                    if (!$budgetService->isWithinBudget($user, $value, $year)) {
+                        $fail("The project cost of RM " . number_format($value, 2) . " exceeds the remaining budget of RM " . number_format($budgetInfo['remaining_budget'], 2) . " for year {$year}.");
                     }
                 },
             ],
@@ -75,6 +90,10 @@ class StorePreProjectRequest extends FormRequest
     {
         return [
             'name.required' => 'Project name is required.',
+            'project_year.required' => 'Project year is required.',
+            'project_year.integer' => 'Project year must be a valid year.',
+            'project_year.min' => 'Project year must be between 2024 and 2030.',
+            'project_year.max' => 'Project year must be between 2024 and 2030.',
             'total_cost.required' => 'Total cost is required.',
             'total_cost.numeric' => 'Total cost must be a number.',
             'total_cost.min' => 'Total cost must be at least 0.',

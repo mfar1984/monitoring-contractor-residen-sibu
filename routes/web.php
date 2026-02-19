@@ -127,6 +127,7 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     // Pre-Project, Project, Contractor Analysis routes
     Route::get('/pages/pre-project', [PageController::class, 'preProject'])->name('pages.pre-project');
     Route::post('/pages/pre-project', [PageController::class, 'preProjectStore'])->name('pages.pre-project.store');
+    Route::get('/pages/pre-project/budget-info', [PageController::class, 'preProjectBudgetInfo'])->name('pages.pre-project.budget-info');
     Route::get('/pages/pre-project/{id}/edit', [PageController::class, 'preProjectEdit'])->name('pages.pre-project.edit');
     Route::get('/pages/pre-project/{id}/print', [PageController::class, 'preProjectPrint'])->name('pages.pre-project.print');
     Route::put('/pages/pre-project/{id}', [PageController::class, 'preProjectUpdate'])->name('pages.pre-project.update');
