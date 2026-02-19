@@ -16,7 +16,7 @@ class BudgetCalculationService
      * 
      * @param User $user
      * @param int|null $year (defaults to current year)
-     * @return array|null ['total_budget', 'total_allocated', 'remaining_budget', 'year', 'parliament_id', 'dun_id']
+     * @return array|null ['total_budget', 'total_allocated', 'remaining_budget', 'year', 'parliament_id', 'dun_id', 'source_name']
      */
     public function getUserBudgetData(User $user, ?int $year = null): ?array
     {
@@ -24,40 +24,86 @@ class BudgetCalculationService
             $year = $year ?? date('Y');
             
             // Check if user is Parliament or DUN user
-            if (!$user->parliament_category_id) {
-                return null;
+            if (!$user->parliament_category_id && !$user->dun_id) {
+                // Return empty budget info for non-Parliament/DUN users
+                return [
+                    'total_budget' => 0.0,
+                    'total_allocated' => 0.0,
+                    'remaining_budget' => 0.0,
+                    'year' => $year,
+                    'parliament_id' => null,
+                    'dun_id' => null,
+                    'source_name' => '',
+                ];
             }
             
-            // Determine if Parliament or DUN
-            $parliament = Parliament::find($user->parliament_category_id);
-            $dun = Dun::find($user->parliament_category_id);
-            
             $totalBudget = 0;
+            $totalAllocated = 0;
             $parliamentId = null;
             $dunId = null;
+            $sourceName = '';
             
-            if ($parliament) {
-                $totalBudget = $parliament->budget ?? 0;
-                $parliamentId = $parliament->id;
+            // Check if user has parliament_category_id (Parliament user)
+            if ($user->parliament_category_id) {
+                $parliament = Parliament::find($user->parliament_category_id);
                 
-                // Calculate total allocated for this Parliament
-                $totalAllocated = PreProject::where('parliament_id', $parliamentId)
-                    ->whereIn('status', ['Waiting for Approval', 'Approved'])
-                    ->sum('total_cost');
-            } elseif ($dun) {
-                $totalBudget = $dun->budget ?? 0;
-                $dunId = $dun->id;
+                if ($parliament) {
+                    // Get budget from parliament_budgets table for the year
+                    $budgetRecord = DB::table('parliament_budgets')
+                        ->where('parliament_id', $parliament->id)
+                        ->where('year', $year)
+                        ->first();
+                    
+                    $totalBudget = $budgetRecord ? $budgetRecord->budget : 0;
+                    $parliamentId = $parliament->id;
+                    $sourceName = $parliament->name;
+                    
+                    // Calculate total allocated for this Parliament in this year
+                    $totalAllocated = PreProject::where('parliament_id', $parliamentId)
+                        ->where('project_year', $year)
+                        ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                        ->sum('total_cost');
+                }
+            }
+            
+            // Check if user has dun_id (DUN user)
+            if ($user->dun_id) {
+                $dun = Dun::find($user->dun_id);
                 
-                // Calculate total allocated for this DUN
-                $totalAllocated = PreProject::where('dun_id', $dunId)
-                    ->whereIn('status', ['Waiting for Approval', 'Approved'])
-                    ->sum('total_cost');
-            } else {
-                Log::warning('User has parliament_category_id but no matching Parliament or DUN found', [
+                if ($dun) {
+                    // Get budget from dun_budgets table for the year
+                    $budgetRecord = DB::table('dun_budgets')
+                        ->where('dun_id', $dun->id)
+                        ->where('year', $year)
+                        ->first();
+                    
+                    $totalBudget = $budgetRecord ? $budgetRecord->budget : 0;
+                    $dunId = $dun->id;
+                    $sourceName = $dun->name;
+                    
+                    // Calculate total allocated for this DUN in this year
+                    $totalAllocated = PreProject::where('dun_id', $dunId)
+                        ->where('project_year', $year)
+                        ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                        ->sum('total_cost');
+                }
+            }
+            
+            if (!$parliamentId && !$dunId) {
+                Log::warning('User has parliament_category_id or dun_id but no matching record found', [
                     'user_id' => $user->id,
-                    'parliament_category_id' => $user->parliament_category_id
+                    'parliament_category_id' => $user->parliament_category_id,
+                    'dun_id' => $user->dun_id
                 ]);
-                return null;
+                return [
+                    'total_budget' => 0.0,
+                    'total_allocated' => 0.0,
+                    'remaining_budget' => 0.0,
+                    'year' => $year,
+                    'parliament_id' => null,
+                    'dun_id' => null,
+                    'source_name' => '',
+                ];
             }
             
             $remainingBudget = $totalBudget - $totalAllocated;
@@ -69,11 +115,13 @@ class BudgetCalculationService
                 'year' => $year,
                 'parliament_id' => $parliamentId,
                 'dun_id' => $dunId,
+                'source_name' => $sourceName,
             ];
         } catch (\Exception $e) {
             Log::error('Failed to calculate user budget data', [
                 'user_id' => $user->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             
             return [
@@ -83,9 +131,24 @@ class BudgetCalculationService
                 'year' => $year ?? date('Y'),
                 'parliament_id' => null,
                 'dun_id' => null,
+                'source_name' => '',
             ];
         }
     }
+    /**
+     * Get budget information for Parliament/DUN users
+     *
+     * This is an alias for getUserBudgetData() for backward compatibility
+     *
+     * @param User $user
+     * @param int|null $year (defaults to current year)
+     * @return array|null ['total_budget', 'total_allocated', 'remaining_budget', 'year', 'parliament_id', 'dun_id']
+     */
+    public function getUserBudgetInfo(User $user, ?int $year = null): ?array
+    {
+        return $this->getUserBudgetData($user, $year);
+    }
+
     
     /**
      * Get aggregated budget data for Residen users

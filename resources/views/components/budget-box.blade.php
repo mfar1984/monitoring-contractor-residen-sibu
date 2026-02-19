@@ -8,10 +8,18 @@
     $budgetInfo = app(\App\Services\BudgetCalculationService::class)
         ->getUserBudgetInfo(Auth::user(), $year);
     
-    $totalBudget = $budgetInfo['total_budget'];
-    $allocatedBudget = $budgetInfo['allocated_budget'];
-    $remainingBudget = $budgetInfo['remaining_budget'];
-    $sourceName = $budgetInfo['source_name'];
+    // Handle null case (for non-Parliament/DUN users)
+    if (!$budgetInfo) {
+        $totalBudget = 0;
+        $allocatedBudget = 0;
+        $remainingBudget = 0;
+        $sourceName = '';
+    } else {
+        $totalBudget = $budgetInfo['total_budget'] ?? 0;
+        $allocatedBudget = $budgetInfo['total_allocated'] ?? 0;
+        $remainingBudget = $budgetInfo['remaining_budget'] ?? 0;
+        $sourceName = $budgetInfo['source_name'] ?? '';
+    }
 @endphp
 
 <div style="margin-bottom: 20px;">

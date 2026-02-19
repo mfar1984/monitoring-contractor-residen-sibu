@@ -10,6 +10,87 @@
     <span>Pre-Project</span>
 @endsection
 
+@push('styles')
+<style>
+    /* Budget Box Styles */
+    .budget-item {
+        background: white;
+        border: 1px solid #e0e0e0;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        text-align: center;
+    }
+    
+    .budget-item.total-budget {
+        border-top: 4px solid #007bff;
+    }
+    
+    .budget-item.total-allocated {
+        border-top: 4px solid #28a745;
+    }
+    
+    .budget-item.remaining {
+        border-top: 4px solid #ffc107;
+    }
+    
+    .budget-item.budget-exceeded {
+        border-top: 4px solid #dc3545;
+    }
+    
+    .budget-label {
+        font-size: 11px;
+        color: #666;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+    
+    .budget-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 4px;
+    }
+    
+    .budget-source {
+        font-size: 10px;
+        color: #999;
+        margin-top: 4px;
+    }
+    
+    /* Budget Reminder in Modal */
+    .budget-reminder {
+        padding: 10px 12px;
+        border-radius: 4px;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+    }
+    
+    .budget-reminder.budget-ok {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+    
+    .budget-reminder.budget-warning {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        color: #856404;
+    }
+    
+    .budget-reminder.budget-exceeded {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+</style>
+@endpush
+
 @section('content')
     <div class="tabs-container">
         <div class="tabs-header">
