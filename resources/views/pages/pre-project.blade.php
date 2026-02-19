@@ -23,12 +23,29 @@
             </div>
             @endif
 
+            {{-- Budget Box Component --}}
+            @if(isset($budgetInfo) && $budgetInfo['source_name'])
+                <x-budget-box 
+                    :totalBudget="$budgetInfo['total_budget']"
+                    :allocatedBudget="$budgetInfo['allocated_budget']"
+                    :remainingBudget="$budgetInfo['remaining_budget']"
+                    :sourceName="$budgetInfo['source_name']"
+                />
+            @endif
+
             @php
                 // Show Create button for Admin, Residen, Parliament and DUN users
                 // Hide for Agency and Contractor users
+                // Disable if budget is 0
                 $isAdmin = $user->username === 'admin' || $user->role === 'admin';
                 $canCreate = $isAdmin || $user->residen_category_id || $user->parliament_category_id || $user->dun_id;
-                $createButtonText = $canCreate ? 'Create Pre-Project' : '';
+                
+                // Check if budget is 0 (disable create button)
+                $hasBudget = isset($budgetInfo) && $budgetInfo['total_budget'] > 0;
+                $createButtonText = $canCreate && $hasBudget ? 'Create Pre-Project' : '';
+                
+                // Show warning if no budget
+                $showBudgetWarning = $canCreate && !$hasBudget;
             @endphp
 
             <x-data-table
@@ -256,8 +273,20 @@
                             
                             <div class="form-group">
                                 <label for="total_cost_display">Total Cost (RM)</label>
-                                <input type="text" id="total_cost_display" readonly style="background-color: #f5f5f5; font-weight: 600;">
+                                <input type="text" id="total_cost_display" readonly style="background-color: #f5f5f5; font-weight: 600;" 
+                                       data-remaining-budget="{{ $budgetInfo['remaining_budget'] ?? 0 }}"
+                                       data-original-cost="0">
                                 <input type="hidden" id="total_cost" name="total_cost" value="0">
+                                
+                                {{-- Budget Reminder --}}
+                                <div id="budget-reminder" class="budget-reminder budget-ok" style="margin-top: 8px; padding: 8px 12px; border-radius: 4px; font-size: 11px; display: flex; align-items: center; gap: 8px;">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">account_balance_wallet</span>
+                                    <span id="budget-text">Remaining budget: RM <span id="budget-amount">{{ number_format($budgetInfo['remaining_budget'] ?? 0, 2) }}</span></span>
+                                </div>
+                                <div id="budget-error-message" style="display: none; margin-top: 8px; padding: 8px 12px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24; font-size: 11px;">
+                                    <span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle;">error</span>
+                                    <span id="budget-error-text"></span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -448,7 +477,7 @@
                 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" id="savePreProjectBtn" class="btn btn-primary">
                         <span class="material-symbols-outlined">save</span>
                         Save
                     </button>
@@ -972,6 +1001,59 @@ function calculateTotal() {
     const total = actualCost + consultationCost + lssCost + sst + others;
     document.getElementById('total_cost_display').value = total.toFixed(2);
     document.getElementById('total_cost').value = total.toFixed(2); // Set hidden input value
+    
+    // Update budget reminder in real-time
+    updateBudgetReminder(total);
+}
+
+function updateBudgetReminder(enteredCost) {
+    const totalCostDisplay = document.getElementById('total_cost_display');
+    const budgetReminder = document.getElementById('budget-reminder');
+    const budgetAmount = document.getElementById('budget-amount');
+    const saveButton = document.getElementById('savePreProjectBtn');
+    const budgetErrorMessage = document.getElementById('budget-error-message');
+    const budgetErrorText = document.getElementById('budget-error-text');
+    
+    if (!totalCostDisplay || !budgetReminder || !budgetAmount || !saveButton) {
+        return; // Elements not found, skip update
+    }
+    
+    const remainingBudget = parseFloat(totalCostDisplay.dataset.remainingBudget) || 0;
+    const originalCost = parseFloat(totalCostDisplay.dataset.originalCost) || 0;
+    const availableBudget = remainingBudget + originalCost;
+    
+    const newRemaining = availableBudget - enteredCost;
+    
+    // Update display
+    budgetAmount.textContent = newRemaining.toFixed(2);
+    
+    // Update styling and button state
+    if (newRemaining < 0) {
+        budgetReminder.classList.remove('budget-ok');
+        budgetReminder.classList.add('budget-exceeded');
+        saveButton.disabled = true;
+        saveButton.classList.add('button-disabled');
+        saveButton.style.opacity = '0.5';
+        saveButton.style.cursor = 'not-allowed';
+        
+        // Show error message
+        if (budgetErrorMessage && budgetErrorText) {
+            budgetErrorText.textContent = 'Budget exceeded. Remaining budget: RM ' + remainingBudget.toFixed(2);
+            budgetErrorMessage.style.display = 'flex';
+        }
+    } else {
+        budgetReminder.classList.remove('budget-exceeded');
+        budgetReminder.classList.add('budget-ok');
+        saveButton.disabled = false;
+        saveButton.classList.remove('button-disabled');
+        saveButton.style.opacity = '1';
+        saveButton.style.cursor = 'pointer';
+        
+        // Hide error message
+        if (budgetErrorMessage) {
+            budgetErrorMessage.style.display = 'none';
+        }
+    }
 }
 
 function openCreateModal() {
@@ -1022,6 +1104,42 @@ function openCreateModal() {
     
     // Reset radio buttons
     document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
+    
+    // Reset budget reminder for create mode
+    const totalCostDisplay = document.getElementById('total_cost_display');
+    const budgetText = document.getElementById('budget-text');
+    const budgetAmount = document.getElementById('budget-amount');
+    
+    if (totalCostDisplay) {
+        totalCostDisplay.dataset.originalCost = '0';
+    }
+    
+    if (budgetText && budgetAmount) {
+        const remainingBudget = parseFloat(totalCostDisplay.dataset.remainingBudget) || 0;
+        budgetText.innerHTML = 'Remaining budget: RM <span id="budget-amount">' + remainingBudget.toFixed(2) + '</span>';
+    }
+    
+    // Reset budget reminder styling
+    const budgetReminder = document.getElementById('budget-reminder');
+    if (budgetReminder) {
+        budgetReminder.classList.remove('budget-exceeded');
+        budgetReminder.classList.add('budget-ok');
+    }
+    
+    // Hide error message
+    const budgetErrorMessage = document.getElementById('budget-error-message');
+    if (budgetErrorMessage) {
+        budgetErrorMessage.style.display = 'none';
+    }
+    
+    // Enable save button
+    const saveButton = document.getElementById('savePreProjectBtn');
+    if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.classList.remove('button-disabled');
+        saveButton.style.opacity = '1';
+        saveButton.style.cursor = 'pointer';
+    }
     
     document.getElementById('preProjectModal').classList.add('show');
 }
@@ -1110,6 +1228,21 @@ function editPreProject(id) {
             } else {
                 attachmentContainer.style.display = 'none';
                 document.getElementById('bill_of_quantity_attachment').required = false;
+            }
+            
+            // Set original cost for edit mode budget calculation
+            const totalCostDisplay = document.getElementById('total_cost_display');
+            if (totalCostDisplay) {
+                totalCostDisplay.dataset.originalCost = data.total_cost || 0;
+            }
+            
+            // Update budget text for edit mode
+            const budgetText = document.getElementById('budget-text');
+            if (budgetText) {
+                const remainingBudget = parseFloat(totalCostDisplay.dataset.remainingBudget) || 0;
+                const originalCost = parseFloat(data.total_cost) || 0;
+                const availableBudget = remainingBudget + originalCost;
+                budgetText.innerHTML = 'Available for this project: RM <span id="budget-amount">' + availableBudget.toFixed(2) + '</span>';
             }
             
             calculateTotal();

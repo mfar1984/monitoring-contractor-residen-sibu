@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="{{ asset('css/components/forms.css') }}">
     <link rel="stylesheet" href="{{ asset('css/components/content-header.css') }}">
     <link rel="stylesheet" href="{{ asset('css/components/modal.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/components/budget-box.css') }}">
     @stack('styles')
 </head>
 <body>

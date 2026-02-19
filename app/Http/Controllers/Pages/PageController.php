@@ -7,6 +7,8 @@ use App\Models\Project;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use App\Http\Requests\StorePreProjectRequest;
+use App\Http\Requests\UpdatePreProjectRequest;
 
 class PageController extends Controller
 {
@@ -1443,6 +1445,10 @@ class PageController extends Controller
             $preProject->completeness_color = $preProject->getCompletenessBadgeColor();
         }
         
+        // Get budget information for the user
+        $budgetService = new \App\Services\BudgetCalculationService();
+        $budgetInfo = $budgetService->getUserBudgetInfo($user);
+        
         $residenCategories = \App\Models\ResidenCategory::where('status', 'Active')->orderBy('name')->get();
         $agencyCategories = \App\Models\AgencyCategory::where('status', 'Active')->orderBy('name')->get();
         $parliaments = \App\Models\Parliament::where('status', 'Active')->orderBy('name')->get();
@@ -1457,6 +1463,7 @@ class PageController extends Controller
         return view('pages.pre-project', compact(
             'user',
             'preProjects',
+            'budgetInfo',
             'residenCategories',
             'agencyCategories',
             'parliaments',
@@ -1470,37 +1477,8 @@ class PageController extends Controller
         ));
     }
 
-    public function preProjectStore(Request $request)
+    public function preProjectStore(StorePreProjectRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'residen_category_id' => 'nullable|exists:residen_categories,id',
-            'agency_category_id' => 'nullable|exists:agency_categories,id',
-            'parliament_dun_basic' => 'nullable|string',
-            'project_category_id' => 'nullable|exists:project_categories,id',
-            'project_scope' => 'nullable|string',
-            'actual_project_cost' => 'nullable|numeric|min:0',
-            'consultation_cost' => 'nullable|numeric|min:0',
-            'lss_inspection_cost' => 'nullable|numeric|min:0',
-            'sst' => 'nullable|numeric|min:0',
-            'others_cost' => 'nullable|numeric|min:0',
-            'implementation_period' => 'nullable|string|max:255',
-            'division_id' => 'nullable|exists:divisions,id',
-            'district_id' => 'nullable|exists:districts,id',
-            'parliament_location_id' => 'nullable|exists:parliaments,id',
-            'dun_id' => 'nullable|exists:duns,id',
-            'site_layout' => 'nullable|in:Yes,No',
-            'land_title_status_id' => 'nullable|exists:land_title_statuses,id',
-            'consultation_service' => 'nullable|in:Yes,No',
-            'implementing_agency_id' => 'nullable|exists:agency_categories,id',
-            'implementation_method_id' => 'nullable|exists:implementation_methods,id',
-            'project_ownership_id' => 'nullable|exists:project_ownerships,id',
-            'jkkk_name' => 'nullable|string|max:255',
-            'state_government_asset' => 'nullable|in:Yes,No',
-            'bill_of_quantity' => 'nullable|in:Yes,No',
-            'bill_of_quantity_attachment' => 'required_if:bill_of_quantity,Yes|file|mimes:pdf,doc,docx,xls,xlsx|max:10240',
-        ]);
-
         $data = $request->except(['parliament_dun_basic', 'bill_of_quantity_attachment']);
         
         // Handle file upload
@@ -1545,38 +1523,9 @@ class PageController extends Controller
         return redirect()->route('pages.pre-project')->with('success', 'Pre-Project created successfully');
     }
 
-    public function preProjectUpdate(Request $request, $id)
+    public function preProjectUpdate(UpdatePreProjectRequest $request, $id)
     {
         $preProject = \App\Models\PreProject::findOrFail($id);
-
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'residen_category_id' => 'nullable|exists:residen_categories,id',
-            'agency_category_id' => 'nullable|exists:agency_categories,id',
-            'parliament_dun_basic' => 'nullable|string',
-            'project_category_id' => 'nullable|exists:project_categories,id',
-            'project_scope' => 'nullable|string',
-            'actual_project_cost' => 'nullable|numeric|min:0',
-            'consultation_cost' => 'nullable|numeric|min:0',
-            'lss_inspection_cost' => 'nullable|numeric|min:0',
-            'sst' => 'nullable|numeric|min:0',
-            'others_cost' => 'nullable|numeric|min:0',
-            'implementation_period' => 'nullable|string|max:255',
-            'division_id' => 'nullable|exists:divisions,id',
-            'district_id' => 'nullable|exists:districts,id',
-            'parliament_location_id' => 'nullable|exists:parliaments,id',
-            'dun_id' => 'nullable|exists:duns,id',
-            'site_layout' => 'nullable|in:Yes,No',
-            'land_title_status_id' => 'nullable|exists:land_title_statuses,id',
-            'consultation_service' => 'nullable|in:Yes,No',
-            'implementing_agency_id' => 'nullable|exists:agency_categories,id',
-            'implementation_method_id' => 'nullable|exists:implementation_methods,id',
-            'project_ownership_id' => 'nullable|exists:project_ownerships,id',
-            'jkkk_name' => 'nullable|string|max:255',
-            'state_government_asset' => 'nullable|in:Yes,No',
-            'bill_of_quantity' => 'nullable|in:Yes,No',
-            'bill_of_quantity_attachment' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx|max:10240',
-        ]);
 
         // CRITICAL: Validate actual_project_cost does not exceed original_project_cost
         // Only validate if original_project_cost is set and greater than 0

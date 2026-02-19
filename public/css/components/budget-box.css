@@ -1,0 +1,85 @@
+/* Budget Box Component - 3 Box Layout */
+
+.budget-item {
+    background: white;
+    border: 1px solid #e0e0e0;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    min-height: 100px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.budget-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Gradient bar at top of each box */
+.budget-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+}
+
+.budget-item.total-budget::before {
+    background: linear-gradient(90deg, #007bff 0%, #0056b3 100%);
+}
+
+.budget-item.total-allocated::before {
+    background: linear-gradient(90deg, #28a745 0%, #1e7e34 100%);
+}
+
+.budget-item.remaining::before {
+    background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%);
+}
+
+.budget-item.remaining.budget-exceeded::before {
+    background: linear-gradient(90deg, #dc3545 0%, #bd2130 100%);
+}
+
+.budget-label {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.budget-value {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #333;
+    line-height: 1.2;
+}
+
+.budget-source {
+    font-size: 10px;
+    color: #999;
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    .budget-item {
+        min-height: 80px;
+        padding: 15px;
+    }
+    
+    .budget-value {
+        font-size: 20px;
+    }
+}
