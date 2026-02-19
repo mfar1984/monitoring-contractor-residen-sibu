@@ -1487,6 +1487,12 @@ class PageController extends Controller
         $budgetService = new \App\Services\BudgetCalculationService();
         $budgetInfo = $budgetService->getUserBudgetInfo($user);
         
+        // Get Residen budget info if user is Residen
+        $residenBudgetInfo = null;
+        if ($user->residen_category_id) {
+            $residenBudgetInfo = $budgetService->getResidenBudgetInfo($user);
+        }
+        
         $residenCategories = \App\Models\ResidenCategory::where('status', 'Active')->orderBy('name')->get();
         $agencyCategories = \App\Models\AgencyCategory::where('status', 'Active')->orderBy('name')->get();
         $parliaments = \App\Models\Parliament::where('status', 'Active')->orderBy('name')->get();
@@ -1502,6 +1508,7 @@ class PageController extends Controller
             'user',
             'preProjects',
             'budgetInfo',
+            'residenBudgetInfo',
             'residenCategories',
             'agencyCategories',
             'parliaments',

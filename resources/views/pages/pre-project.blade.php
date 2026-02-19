@@ -23,9 +23,14 @@
             </div>
             @endif
 
-            {{-- Budget Box Component - Shows current year budget by default --}}
+            {{-- Budget Box Component - Shows for Parliament/DUN users (3 boxes in 1 row) --}}
             @if(isset($budgetInfo) && $budgetInfo['source_name'])
                 <x-budget-box :year="$budgetInfo['year'] ?? now()->year" />
+            @endif
+
+            {{-- Residen Budget Boxes - Only for Residen users (5 boxes in 1 row) --}}
+            @if($user->residen_category_id && isset($residenBudgetInfo))
+                <x-residen-budget-box :year="$residenBudgetInfo['year'] ?? now()->year" />
             @endif
 
             @php

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Parliament;
 use App\Models\Dun;
 use App\Models\PreProject;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -217,6 +218,84 @@ class BudgetCalculationService
             ]);
 
             return 0;
+        }
+    }
+
+    /**
+     * Get aggregated budget information for Residen users
+     * 
+     * Calculates total budgets and allocations across all Parliament and DUN
+     * constituencies for a specific fiscal year.
+     * 
+     * @param User $user The authenticated Residen user
+     * @param int|null $year The fiscal year (defaults to current year)
+     * @return array [
+     *   'total_budget_parliament' => float,
+     *   'total_budget_dun' => float,
+     *   'total_allocated_parliament' => float,
+     *   'total_allocated_dun' => float,
+     *   'remaining_budget' => float,
+     *   'year' => int
+     * ]
+     */
+    public function getResidenBudgetInfo(User $user, ?int $year = null): array
+    {
+        // Default to current year if not specified
+        $year = $year ?? now()->year;
+        
+        try {
+            // Calculate total Parliament budgets
+            $totalBudgetParliament = DB::table('parliament_budgets')
+                ->where('year', $year)
+                ->sum('budget');
+            
+            // Calculate total DUN budgets
+            $totalBudgetDun = DB::table('dun_budgets')
+                ->where('year', $year)
+                ->sum('budget');
+            
+            // Calculate total allocated to Parliament pre-projects
+            $totalAllocatedParliament = DB::table('pre_projects')
+                ->whereNotNull('parliament_id')
+                ->where('project_year', $year)
+                ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                ->sum('total_cost');
+            
+            // Calculate total allocated to DUN pre-projects
+            $totalAllocatedDun = DB::table('pre_projects')
+                ->whereNotNull('dun_id')
+                ->where('project_year', $year)
+                ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                ->sum('total_cost');
+            
+            // Calculate remaining budget
+            $totalBudget = $totalBudgetParliament + $totalBudgetDun;
+            $totalAllocated = $totalAllocatedParliament + $totalAllocatedDun;
+            $remainingBudget = $totalBudget - $totalAllocated;
+            
+            return [
+                'total_budget_parliament' => (float) ($totalBudgetParliament ?? 0),
+                'total_budget_dun' => (float) ($totalBudgetDun ?? 0),
+                'total_allocated_parliament' => (float) ($totalAllocatedParliament ?? 0),
+                'total_allocated_dun' => (float) ($totalAllocatedDun ?? 0),
+                'remaining_budget' => $remainingBudget,
+                'year' => $year,
+            ];
+        } catch (\Exception $e) {
+            Log::error('Residen budget calculation failed', [
+                'user_id' => $user->id,
+                'year' => $year,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'total_budget_parliament' => 0.0,
+                'total_budget_dun' => 0.0,
+                'total_allocated_parliament' => 0.0,
+                'total_allocated_dun' => 0.0,
+                'remaining_budget' => 0.0,
+                'year' => $year,
+            ];
         }
     }
 }
