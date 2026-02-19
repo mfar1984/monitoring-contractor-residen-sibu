@@ -16,15 +16,15 @@ Each task builds on previous work and includes specific requirements references 
 
 ## Tasks
 
-- [ ] 1. Create database migration for submission tracking fields
+- [x] 1. Create database migration for submission tracking fields
   - Add `submitted_to_epu_at` timestamp field (nullable)
   - Add `submitted_to_epu_by` foreign key field (nullable, references users.id)
   - Add foreign key constraint with onDelete('set null')
   - Update PreProject model fillable array to include new fields
   - _Requirements: 4.6, 5.5_
 
-- [ ] 2. Implement completeness calculation methods in PreProject model
-  - [ ] 2.1 Add getRequiredFieldsDefinition() method
+- [x] 2. Implement completeness calculation methods in PreProject model
+  - [x] 2.1 Add getRequiredFieldsDefinition() method
     - Return array with 9 required fields and their display names
     - Fields: project_scope, project_category_id, implementation_period, division_id, district_id, land_title_status_id, implementing_agency_id, implementation_method_id, project_ownership_id
     - _Requirements: 2.1_
@@ -33,13 +33,13 @@ Each task builds on previous work and includes specific requirements references 
     - **Property 1: Completeness Percentage Calculation**
     - **Validates: Requirements 1.2, 2.2, 7.2, 7.5, 7.6**
   
-  - [ ] 2.3 Add getCompletenessPercentage() method
+  - [x] 2.3 Add getCompletenessPercentage() method
     - Calculate percentage of filled required fields
     - Return integer between 0 and 100
     - Handle edge case of zero required fields (return 100)
     - _Requirements: 1.2, 7.1, 7.2_
   
-  - [ ] 2.4 Add getMissingRequiredFields() method
+  - [x] 2.4 Add getMissingRequiredFields() method
     - Return array of display names for empty/null required fields
     - Check each field from getRequiredFieldsDefinition()
     - _Requirements: 7.3, 7.4_
@@ -48,11 +48,11 @@ Each task builds on previous work and includes specific requirements references 
     - **Property 4: Missing Fields Array Accuracy**
     - **Validates: Requirements 6.3, 7.4**
   
-  - [ ] 2.6 Add isDataComplete() method
+  - [x] 2.6 Add isDataComplete() method
     - Return true if completeness is 100%, false otherwise
     - _Requirements: 4.1_
   
-  - [ ] 2.7 Add getCompletenessBadgeColor() method
+  - [x] 2.7 Add getCompletenessBadgeColor() method
     - Return '#dc3545' (red) for 0-50%
     - Return '#ffc107' (yellow) for 51-80%
     - Return '#28a745' (green) for 81-100%
@@ -62,8 +62,8 @@ Each task builds on previous work and includes specific requirements references 
     - **Property 2: Color Coding Based on Percentage**
     - **Validates: Requirements 1.3, 1.4, 1.5**
 
-- [ ] 3. Add EPU submission controller method
-  - [ ] 3.1 Create preProjectSubmitToEpu() method in PageController
+- [x] 3. Add EPU submission controller method
+  - [x] 3.1 Create preProjectSubmitToEpu() method in PageController
     - Check user authorization (parliament_category_id or dun_basic_id required)
     - Validate Pre-Project status is "Waiting for EPU Approval"
     - Call isDataComplete() to validate completeness
@@ -85,25 +85,25 @@ Each task builds on previous work and includes specific requirements references 
     - **Property 8: Complete Submission Changes Status**
     - **Validates: Requirements 4.4, 4.6**
 
-- [ ] 4. Update preProject() method to include completeness data
+- [x] 4. Update preProject() method to include completeness data
   - Loop through $preProjects collection
   - Add completeness_percentage property using getCompletenessPercentage()
   - Add completeness_color property using getCompletenessBadgeColor()
   - Pass data to view
   - _Requirements: 1.2, 1.3, 1.4, 1.5_
 
-- [ ] 5. Add route for EPU submission
+- [x] 5. Add route for EPU submission
   - Add POST route: /pages/pre-project/{id}/submit-to-epu
   - Route name: pages.pre-project.submit-to-epu
   - Controller: PageController@preProjectSubmitToEpu
   - Add to web.php routes file
   - _Requirements: 4.1_
 
-- [ ] 6. Update Pre-Project list view with completeness column
-  - [ ] 6.1 Add "Completeness" column header after "Status" column
+- [x] 6. Update Pre-Project list view with completeness column
+  - [x] 6.1 Add "Completeness" column header after "Status" column
     - _Requirements: 1.1_
   
-  - [ ] 6.2 Add completeness indicator in table body
+  - [x] 6.2 Add completeness indicator in table body
     - Show percentage badge for "Waiting for EPU Approval" status
     - Use completeness_color for badge background
     - Display completeness_percentage with "%" suffix
@@ -114,15 +114,15 @@ Each task builds on previous work and includes specific requirements references 
     - Test column appears in rendered HTML
     - _Requirements: 1.1_
 
-- [ ] 7. Update actions column with Submit to EPU button
-  - [ ] 7.1 Add conditional logic for button display
+- [x] 7. Update actions column with Submit to EPU button
+  - [x] 7.1 Add conditional logic for button display
     - Show "Submit to EPU" button when status is "Waiting for EPU Approval"
     - Show button only for users with parliament_category_id or dun_basic_id
     - Hide Edit and Delete buttons when Submit button is shown
     - Keep Print button always visible
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
   
-  - [ ] 7.2 Create Submit to EPU button with form
+  - [x] 7.2 Create Submit to EPU button with form
     - POST form to route('pages.pre-project.submit-to-epu', $preProject->id)
     - Include @csrf token
     - Use Material Symbols icon "send"
@@ -137,8 +137,8 @@ Each task builds on previous work and includes specific requirements references 
     - **Property 6: Button Replacement for Waiting Status**
     - **Validates: Requirements 3.5**
 
-- [ ] 8. Create missing fields modal
-  - [ ] 8.1 Add modal HTML structure
+- [x] 8. Create missing fields modal
+  - [x] 8.1 Add modal HTML structure
     - Modal ID: missingFieldsModal
     - Modal title: "Incomplete Data"
     - Empty list element with ID: missingFieldsList
@@ -147,14 +147,14 @@ Each task builds on previous work and includes specific requirements references 
     - Initially hidden (display: none)
     - _Requirements: 6.1, 6.2, 6.4_
   
-  - [ ] 8.2 Add JavaScript to show modal on validation failure
+  - [x] 8.2 Add JavaScript to show modal on validation failure
     - Check for session('missing_fields')
     - Call showMissingFieldsModal() on page load if present
     - Populate missingFieldsList with missing field names
     - Display modal (display: flex)
     - _Requirements: 6.1, 6.3_
   
-  - [ ] 8.3 Add JavaScript to close modal
+  - [x] 8.3 Add JavaScript to close modal
     - closeMissingFieldsModal() function
     - Hide modal (display: none)
     - Close on ESC key press

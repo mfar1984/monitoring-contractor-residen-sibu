@@ -133,6 +133,8 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::delete('/pages/pre-project/{id}', [PageController::class, 'preProjectDelete'])->name('pages.pre-project.delete');
     Route::post('/pages/pre-project/{id}/approve', [PageController::class, 'preProjectApprove'])->name('pages.pre-project.approve');
     Route::post('/pages/pre-project/{id}/reject', [PageController::class, 'preProjectReject'])->name('pages.pre-project.reject');
+    Route::post('/pages/pre-project/{id}/submit-to-epu', [PageController::class, 'preProjectSubmitToEpu'])->name('pages.pre-project.submit-to-epu');
+    
     // Project routes
     Route::get('/pages/project', [PageController::class, 'project'])->name('pages.project');
     

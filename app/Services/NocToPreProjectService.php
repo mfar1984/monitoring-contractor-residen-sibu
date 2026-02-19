@@ -132,13 +132,14 @@ class NocToPreProjectService
             'project_category_id' => $originalProject->project_category_id,
             'project_scope' => $originalProject->project_scope,
             
-            // Cost of Project
-            'actual_project_cost' => $originalProject->actual_project_cost,
-            'consultation_cost' => $originalProject->consultation_cost,
-            'lss_inspection_cost' => $originalProject->lss_inspection_cost,
-            'sst' => $originalProject->sst,
-            'others_cost' => $originalProject->others_cost,
-            'total_cost' => $originalProject->total_cost,
+            // Cost of Project - CRITICAL: Map to actual_project_cost, not total_cost
+            'actual_project_cost' => $originalProject->total_cost, // From cancelled project
+            'original_project_cost' => $originalProject->total_cost, // Store original for validation
+            'consultation_cost' => 0, // Reset to 0 for user to fill
+            'lss_inspection_cost' => 0, // Reset to 0 for user to fill
+            'sst' => 0, // Reset to 0 for user to fill
+            'others_cost' => 0, // Reset to 0 for user to fill
+            'total_cost' => $originalProject->total_cost, // Initially same as actual
             
             // Project Location
             'implementation_period' => $originalProject->implementation_period,
@@ -162,7 +163,7 @@ class NocToPreProjectService
             'bill_of_quantity_attachment' => $originalProject->bill_of_quantity_attachment,
             
             // Status
-            'status' => 'Waiting For EPU Approval',
+            'status' => 'Waiting for Complete Form',
         ];
         
         // Apply changes from NOC
@@ -171,8 +172,9 @@ class NocToPreProjectService
         }
         
         if (!empty($nocProjectData['kos_baru'])) {
-            $preProjectData['total_cost'] = $nocProjectData['kos_baru'];
-            // Note: Cost breakdown remains the same, only total_cost is updated
+            // CRITICAL: kos_baru goes to actual_project_cost, NOT total_cost
+            $preProjectData['actual_project_cost'] = $nocProjectData['kos_baru'];
+            $preProjectData['total_cost'] = $nocProjectData['kos_baru']; // Recalculate total
         }
         
         if (!empty($nocProjectData['agensi_pelaksana_baru'])) {
@@ -211,12 +213,20 @@ class NocToPreProjectService
             }
         }
         
+        $kosBaru = $nocProjectData['kos_baru'] ?? 0;
+        
         // Create pre-project with minimal required data
-        // NO project_number - pre-projects don't have project numbers yet
+        // CRITICAL: kos_baru goes to actual_project_cost, NOT total_cost
         $preProjectData = [
             'name' => $nocProjectData['nama_projek_baru'] ?? 'New Project',
-            'total_cost' => $nocProjectData['kos_baru'] ?? 0,
-            'status' => 'Waiting For EPU Approval',
+            'actual_project_cost' => $kosBaru,
+            'original_project_cost' => $kosBaru, // Store original for validation
+            'consultation_cost' => 0,
+            'lss_inspection_cost' => 0,
+            'sst' => 0,
+            'others_cost' => 0,
+            'total_cost' => $kosBaru, // Initially same as actual
+            'status' => 'Waiting for Complete Form',
             'parliament_id' => $noc->parliament_id,
             'dun_id' => $noc->dun_id,
             'implementing_agency_id' => $agencyId,

@@ -1437,6 +1437,12 @@ class PageController extends Controller
             'projectOwnership'
         ])->orderBy('created_at', 'desc')->get();
         
+        // Add completeness data to each pre-project
+        foreach ($preProjects as $preProject) {
+            $preProject->completeness_percentage = $preProject->getCompletenessPercentage();
+            $preProject->completeness_color = $preProject->getCompletenessBadgeColor();
+        }
+        
         $residenCategories = \App\Models\ResidenCategory::where('status', 'Active')->orderBy('name')->get();
         $agencyCategories = \App\Models\AgencyCategory::where('status', 'Active')->orderBy('name')->get();
         $parliaments = \App\Models\Parliament::where('status', 'Active')->orderBy('name')->get();
@@ -1569,10 +1575,24 @@ class PageController extends Controller
             'jkkk_name' => 'nullable|string|max:255',
             'state_government_asset' => 'nullable|in:Yes,No',
             'bill_of_quantity' => 'nullable|in:Yes,No',
-            'bill_of_quantity_attachment' => 'required_if:bill_of_quantity,Yes|file|mimes:pdf,doc,docx,xls,xlsx|max:10240',
+            'bill_of_quantity_attachment' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx|max:10240',
         ]);
 
-        $data = $request->except(['parliament_dun_basic', 'bill_of_quantity_attachment']);
+        // CRITICAL: Validate actual_project_cost does not exceed original_project_cost
+        // Only validate if original_project_cost is set and greater than 0
+        if (!empty($preProject->original_project_cost) && $preProject->original_project_cost > 0 && !empty($request->actual_project_cost)) {
+            if ($request->actual_project_cost > $preProject->original_project_cost) {
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors([
+                        'actual_project_cost' => 'Actual Project Cost (RM ' . number_format($request->actual_project_cost, 2) . 
+                        ') cannot exceed original budget of RM ' . number_format($preProject->original_project_cost, 2) . 
+                        '. This cost comes from a cancelled project and cannot be increased.'
+                    ]);
+            }
+        }
+
+        $data = $request->except(['parliament_dun_basic', 'bill_of_quantity_attachment', 'total_cost']);
         
         // Handle file upload
         if ($request->hasFile('bill_of_quantity_attachment')) {
@@ -1607,7 +1627,8 @@ class PageController extends Controller
             $data['dun_basic_id'] = null;
         }
         
-        // Calculate total cost
+        // CRITICAL: Auto-calculate total cost (READ ONLY field)
+        // User cannot edit total_cost directly - it's calculated from components
         $data['total_cost'] = ($request->actual_project_cost ?? 0) + 
                               ($request->consultation_cost ?? 0) + 
                               ($request->lss_inspection_cost ?? 0) + 
@@ -1628,7 +1649,7 @@ class PageController extends Controller
     }
 
     // Pre-Project Approval Methods
-    public function preProjectApprove($id)
+    public function preProjectApprove(Request $request, $id)
     {
         $preProject = \App\Models\PreProject::findOrFail($id);
         $user = auth()->user();
@@ -1642,20 +1663,22 @@ class PageController extends Controller
             return redirect()->back()->with('error', 'You are not authorized to approve this Pre-Project');
         }
         
-        // Check if Pre-Project is in correct status
-        if ($preProject->status !== 'Waiting for Approval') {
+        // Pre-Project only has ONE approval level - directly move to EPU Approval
+        if ($preProject->status === 'Waiting for Approver 1') {
+            $preProject->update([
+                'status' => 'Waiting for EPU Approval',
+                'first_approver_id' => $user->id,
+                'first_approved_at' => now(),
+                'first_approval_remarks' => $request->approval_remarks,
+            ]);
+            return redirect()->route('pages.pre-project')->with('success', 'Pre-Project approved successfully. Now waiting for EPU approval.');
+            
+        } else {
             return redirect()->back()->with('error', 'This Pre-Project cannot be approved at this stage');
         }
-        
-        // Update status to Waiting for EPU Approval
-        $preProject->update([
-            'status' => 'Waiting for EPU Approval'
-        ]);
-        
-        return redirect()->route('pages.pre-project')->with('success', 'Pre-Project approved successfully. Now waiting for EPU approval.');
     }
 
-    public function preProjectReject($id)
+    public function preProjectReject(Request $request, $id)
     {
         $preProject = \App\Models\PreProject::findOrFail($id);
         $user = auth()->user();
@@ -1669,15 +1692,75 @@ class PageController extends Controller
             return redirect()->back()->with('error', 'You are not authorized to reject this Pre-Project');
         }
         
-        // Check if Pre-Project is in correct status
-        if ($preProject->status !== 'Waiting for Approval') {
+        // Check if Pre-Project is in approval stage (only Approver 1 for Pre-Project)
+        if ($preProject->status !== 'Waiting for Approver 1') {
             return redirect()->back()->with('error', 'This Pre-Project cannot be rejected at this stage');
         }
         
-        // Delete the Pre-Project
-        $preProject->delete();
+        // Validate rejection remarks
+        $request->validate([
+            'rejection_remarks' => 'required|string|min:10|max:500'
+        ], [
+            'rejection_remarks.required' => 'Please provide a reason for rejection',
+            'rejection_remarks.min' => 'Rejection reason must be at least 10 characters',
+            'rejection_remarks.max' => 'Rejection reason cannot exceed 500 characters'
+        ]);
         
-        return redirect()->route('pages.pre-project')->with('success', 'Pre-Project rejected and deleted successfully');
+        // Return to "Waiting for Complete Form" status so Parliament user can edit and resubmit
+        $preProject->update([
+            'status' => 'Waiting for Complete Form',
+            'rejection_remarks' => $request->rejection_remarks,
+            'rejected_by' => $user->id,
+            'rejected_at' => now(),
+            'first_approver_id' => null,
+            'first_approved_at' => null,
+            'second_approver_id' => null,
+            'second_approved_at' => null,
+            'submitted_to_epu_at' => null,
+            'submitted_to_epu_by' => null
+        ]);
+        
+        return redirect()->route('pages.pre-project')->with('success', 'Pre-Project rejected. Parliament user can now edit and resubmit.');
+    }
+
+    /**
+     * Submit Pre-Project to EPU (First Approval)
+     * 
+     * @param int $id Pre-Project ID
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function preProjectSubmitToEpu($id)
+    {
+        $preProject = \App\Models\PreProject::findOrFail($id);
+        $user = auth()->user();
+        
+        // Authorization: Only Member of Parliament users can submit
+        if (!$user->parliament_category_id && !$user->dun_id) {
+            return redirect()->back()->with('error', 'You are not authorized to submit Pre-Projects');
+        }
+        
+        // Status check: Must be "Waiting for Complete Form"
+        if ($preProject->status !== 'Waiting for Complete Form') {
+            return redirect()->back()->with('error', 'This Pre-Project cannot be submitted at this stage');
+        }
+        
+        // Validate data completeness
+        if (!$preProject->isDataComplete()) {
+            $missingFields = $preProject->getMissingRequiredFields();
+            return redirect()->back()
+                ->with('error', 'Pre-Project data is incomplete')
+                ->with('missing_fields', $missingFields);
+        }
+        
+        // Update status to "Waiting for Approver 1"
+        $preProject->update([
+            'status' => 'Waiting for Approver 1',
+            'submitted_to_epu_at' => now(),
+            'submitted_to_epu_by' => $user->id,
+        ]);
+        
+        return redirect()->route('pages.pre-project')
+            ->with('success', 'Pre-Project submitted successfully. Waiting for Approver 1.');
     }
 
     public function preProjectEdit($id)
@@ -1695,8 +1778,58 @@ class PageController extends Controller
             'landTitleStatus',
             'implementingAgency',
             'implementationMethod',
-            'projectOwnership'
+            'projectOwnership',
+            'firstApprover',
+            'secondApprover',
+            'rejectedBy',
+            'submittedToEpuBy',
+            'project' // Load project relationship to check if transferred
         ])->findOrFail($id);
+        
+        // Get NOC changes if this pre-project has been transferred to a project
+        $nocChanges = [];
+        $nocs = [];
+        
+        if ($preProject->project) {
+            // Load NOCs through the project relationship
+            $project = \App\Models\Project::with([
+                'nocs.creator.parliament',
+                'nocs.creator.dun',
+                'nocs.firstApprover',
+                'nocs.secondApprover'
+            ])->find($preProject->project->id);
+            
+            if ($project && $project->nocs) {
+                foreach ($project->nocs as $noc) {
+                    $pivotData = \DB::table('noc_project')
+                        ->where('noc_id', $noc->id)
+                        ->where('project_id', $project->id)
+                        ->first();
+                    
+                    if ($pivotData) {
+                        $nocNote = \App\Models\NocNote::find($pivotData->noc_note_id);
+                        $nocChanges[] = [
+                            'noc_number' => $noc->noc_number,
+                            'tahun_rtp' => $pivotData->tahun_rtp,
+                            'no_projek' => $pivotData->no_projek,
+                            'nama_projek_asal' => $pivotData->nama_projek_asal,
+                            'nama_projek_baru' => $pivotData->nama_projek_baru,
+                            'kos_asal' => $pivotData->kos_asal,
+                            'kos_baru' => $pivotData->kos_baru,
+                            'agensi_pelaksana_asal' => $pivotData->agensi_pelaksana_asal,
+                            'agensi_pelaksana_baru' => $pivotData->agensi_pelaksana_baru,
+                            'noc_note_name' => $nocNote ? $nocNote->name : null,
+                        ];
+                    }
+                }
+                
+                // Add NOC data to response
+                $nocs = $project->nocs;
+            }
+        }
+        
+        $preProject->noc_changes = $nocChanges;
+        $preProject->nocs = $nocs;
         
         return response()->json($preProject);
     }

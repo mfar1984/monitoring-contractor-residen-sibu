@@ -425,13 +425,35 @@
                         </div>
                     </div>
 
-                    <!-- Budget Warning Message -->
+                    <!-- Budget Warning Message (Over Budget) -->
                     <div id="budgetWarning" style="display: none; background-color: white; border: 1px solid #e0e0e0; border-left: 3px solid #dc3545; padding: 12px 16px; border-radius: 4px; margin-bottom: 15px; font-size: 12px;">
                         <div style="display: flex; align-items: flex-start; gap: 10px;">
                             <span class="material-symbols-outlined" style="font-size: 18px; color: #dc3545; flex-shrink: 0; margin-top: 1px;">error</span>
                             <div style="line-height: 1.5;">
                                 <strong style="display: block; margin-bottom: 4px; color: #333;">Budget Exceeded</strong>
                                 <span style="color: #666;">Total allocated amount exceeds available budget. Please import more projects or reduce allocated amounts.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Empty Row Warning Message -->
+                    <div id="emptyRowWarning" style="display: none; background-color: white; border: 1px solid #e0e0e0; border-left: 3px solid #dc3545; padding: 12px 16px; border-radius: 4px; margin-bottom: 15px; font-size: 12px;">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <span class="material-symbols-outlined" style="font-size: 18px; color: #dc3545; flex-shrink: 0; margin-top: 1px;">warning</span>
+                            <div style="line-height: 1.5;">
+                                <strong style="display: block; margin-bottom: 4px; color: #333;">Empty Rows Detected</strong>
+                                <span style="color: #666;">Please delete empty rows (rows without New Cost) before creating NOC.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Budget Info Message (Remaining Budget) -->
+                    <div id="budgetInfo" style="display: none; background-color: white; border: 1px solid #e0e0e0; border-left: 3px solid #ffc107; padding: 12px 16px; border-radius: 4px; margin-bottom: 15px; font-size: 12px;">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <span class="material-symbols-outlined" style="font-size: 18px; color: #ffc107; flex-shrink: 0; margin-top: 1px;">info</span>
+                            <div style="line-height: 1.5;">
+                                <strong style="display: block; margin-bottom: 4px; color: #333;">Budget Not Fully Allocated</strong>
+                                <span style="color: #666;">NOC can only be created when remaining budget is RM 0.00. Please allocate all budget to projects.</span>
                             </div>
                         </div>
                     </div>
@@ -659,6 +681,8 @@ function importSelectedProjects() {
 
 function addNewProjectRow() {
     addProjectRow(null, '', '', 0, '', '', '', true);
+    // Run validation immediately after adding new row
+    updateBudgetSummary();
 }
 
 function addProjectRow(projectId, projectNumber, projectName, projectCost, projectAgency, projectAgencyId, projectYear, isNew) {
@@ -801,21 +825,95 @@ function updateBudgetSummary() {
         remainingElement.style.color = '#333';
     }
     
-    // Show/hide warning message and disable/enable submit button
+    // Check for empty rows (rows without New Cost)
+    const hasEmptyRows = checkForEmptyRows();
+    
+    // Show/hide warning/info messages and disable/enable submit button
     const warningDiv = document.getElementById('budgetWarning');
+    const infoDiv = document.getElementById('budgetInfo');
+    const emptyRowWarning = document.getElementById('emptyRowWarning');
     const submitBtn = document.getElementById('submitBtn');
     
+    // Button validation logic
     if (remaining < 0) {
+        // Over budget - show error
         warningDiv.style.display = 'block';
+        infoDiv.style.display = 'none';
+        emptyRowWarning.style.display = 'none';
         submitBtn.disabled = true;
         submitBtn.style.opacity = '0.5';
         submitBtn.style.cursor = 'not-allowed';
-    } else {
+    } else if (hasEmptyRows) {
+        // Has empty rows - show warning and disable button
         warningDiv.style.display = 'none';
+        infoDiv.style.display = 'none';
+        emptyRowWarning.style.display = 'block';
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        submitBtn.style.cursor = 'not-allowed';
+        submitBtn.title = 'Please delete empty rows or fill in New Cost';
+    } else if (remaining > 0) {
+        // Still have remaining budget - show info and disable button
+        warningDiv.style.display = 'none';
+        infoDiv.style.display = 'block';
+        emptyRowWarning.style.display = 'none';
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        submitBtn.style.cursor = 'not-allowed';
+        submitBtn.title = 'NOC can only be created when remaining budget is RM 0.00';
+    } else {
+        // Remaining budget is exactly RM 0.00 and no empty rows - enable button
+        warningDiv.style.display = 'none';
+        infoDiv.style.display = 'none';
+        emptyRowWarning.style.display = 'none';
         submitBtn.disabled = false;
         submitBtn.style.opacity = '1';
         submitBtn.style.cursor = 'pointer';
+        submitBtn.title = '';
     }
+}
+
+// Check for empty rows (rows without New Cost)
+function checkForEmptyRows() {
+    const tbody = document.getElementById('projectsTableBody');
+    
+    // Skip if table is empty (showing empty state message)
+    const emptyStateRow = tbody.querySelector('tr td[colspan="10"]');
+    if (emptyStateRow) {
+        return false; // No actual rows, so no empty rows
+    }
+    
+    const rows = tbody.querySelectorAll('tr');
+    let hasEmpty = false;
+    
+    rows.forEach(row => {
+        const kosBaru = row.querySelector('.kos-baru-input');
+        const kosAsal = row.querySelector('.kos-asal-input');
+        
+        // Only check rows that have kos-baru-input field
+        if (kosBaru && kosAsal) {
+            const kosBaruValue = parseFloat(kosBaru.value) || 0;
+            const kosAsalValue = parseFloat(kosAsal.value) || 0;
+            
+            // Check if this is a new project row (kosAsal input is disabled)
+            const isNewProject = kosAsal.disabled || kosAsalValue === 0;
+            
+            // For new projects, check if New Cost is empty or 0
+            // Also check if value is not a valid number (e.g., placeholder text)
+            if (isNewProject) {
+                const hasValidCost = kosBaru.value.trim() !== '' && 
+                                    !isNaN(parseFloat(kosBaru.value)) && 
+                                    parseFloat(kosBaru.value) > 0;
+                
+                if (!hasValidCost) {
+                    // This is a new project row with no valid cost - EMPTY
+                    hasEmpty = true;
+                }
+            }
+        }
+    });
+    
+    return hasEmpty;
 }
 
 // File upload handler
@@ -848,6 +946,20 @@ function updateFileName(inputId, displayId) {
         display.style.color = '#28a745';
     }
 }
+
+// Event delegation for real-time validation on input fields
+document.getElementById('projectsTableBody').addEventListener('input', function(e) {
+    if (e.target.classList.contains('kos-baru-input')) {
+        updateBudgetSummary();
+    }
+});
+
+// Also trigger validation on blur (when user leaves the field)
+document.getElementById('projectsTableBody').addEventListener('blur', function(e) {
+    if (e.target.classList.contains('kos-baru-input')) {
+        updateBudgetSummary();
+    }
+}, true);
 
 // Form validation
 document.getElementById('nocForm').addEventListener('submit', function(e) {
