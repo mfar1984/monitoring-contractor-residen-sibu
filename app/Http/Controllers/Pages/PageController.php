@@ -1461,7 +1461,8 @@ class PageController extends Controller
     {
         $user = auth()->user();
         
-        $preProjects = \App\Models\PreProject::with([
+        // Filter pre-projects based on user's parliament_id or dun_id
+        $query = \App\Models\PreProject::with([
             'residenCategory', 
             'agencyCategory', 
             'parliament',
@@ -1475,7 +1476,19 @@ class PageController extends Controller
             'implementingAgency',
             'implementationMethod',
             'projectOwnership'
-        ])->orderBy('created_at', 'desc')->get();
+        ]);
+        
+        // Apply access control filter
+        if ($user->parliament_id) {
+            // User under Parliament - only show pre-projects for their Parliament
+            $query->where('parliament_id', $user->parliament_id);
+        } elseif ($user->dun_id) {
+            // User under DUN - only show pre-projects for their DUN
+            $query->where('dun_basic_id', $user->dun_id);
+        }
+        // Admin/Residen users see all pre-projects (no filter)
+        
+        $preProjects = $query->orderBy('created_at', 'desc')->get();
         
         // Add completeness data to each pre-project
         foreach ($preProjects as $preProject) {
