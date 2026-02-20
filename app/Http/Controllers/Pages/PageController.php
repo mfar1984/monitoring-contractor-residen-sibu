@@ -2218,7 +2218,7 @@ class PageController extends Controller
         if ($user->parliament_id) {
             $projectsQuery->where('parliament_id', $user->parliament_id);
         } elseif ($user->dun_id) {
-            $projectsQuery->where('dun_id', $user->dun_id);
+            $projectsQuery->where('dun_basic_id', $user->dun_id);
         }
         
         // Exclude projects with status "NOC" and "Projek Dibatalkan" - they should appear in Project Cancel tab
@@ -2358,8 +2358,8 @@ class PageController extends Controller
     {
         $user = auth()->user();
         
-        // Get projects with status "Projek Dibatalkan" (Cancelled) OR "NOC"
-        $cancelledProjects = Project::with([
+        // Filter cancelled projects based on user's parliament_id or dun_id
+        $query = Project::with([
             'parliament',
             'dun',
             'agencyCategory',
@@ -2367,9 +2367,19 @@ class PageController extends Controller
             'division',
             'district'
         ])
-        ->whereIn('status', ['Projek Dibatalkan', 'NOC'])
-        ->orderBy('created_at', 'desc')
-        ->get();
+        ->whereIn('status', ['Projek Dibatalkan', 'NOC']);
+        
+        // Apply access control filter
+        if ($user->parliament_id) {
+            // User under Parliament - only show projects for their Parliament
+            $query->where('parliament_id', $user->parliament_id);
+        } elseif ($user->dun_id) {
+            // User under DUN - only show projects for their DUN
+            $query->where('dun_basic_id', $user->dun_id);
+        }
+        // Admin/Residen users see all cancelled projects (no filter)
+        
+        $cancelledProjects = $query->orderBy('created_at', 'desc')->get();
         
         return view('pages.project-cancel', compact('cancelledProjects', 'user'));
     }
