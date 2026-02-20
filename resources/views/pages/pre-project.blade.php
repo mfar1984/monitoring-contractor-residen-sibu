@@ -1105,19 +1105,33 @@ function updateBudgetReminder(enteredCost) {
     const budgetErrorText = document.getElementById('budget-error-text');
     
     if (!totalCostDisplay || !budgetReminder || !budgetAmount || !saveButton) {
-        return; // Elements not found, skip update
+        return;
     }
     
     const remainingBudget = parseFloat(totalCostDisplay.dataset.remainingBudget) || 0;
     const originalCost = parseFloat(totalCostDisplay.dataset.originalCost) || 0;
-    const availableBudget = remainingBudget + originalCost;
+    const originalYear = totalCostDisplay.dataset.originalYear;
+    const isFromNoc = totalCostDisplay.dataset.isFromNoc === 'true';
+    const nocBudget = parseFloat(totalCostDisplay.dataset.nocBudget) || 0;
+    const selectedYear = document.getElementById('project_year').value;
+    const isEditMode = document.getElementById('preProjectId').value !== '';
+    
+    let availableBudget = remainingBudget;
+    
+    if (isEditMode && isFromNoc) {
+        // FROM NOC: Available = NOC Budget ONLY (LOCKED)
+        availableBudget = nocBudget;
+        console.log('FROM NOC: Budget LOCKED to:', nocBudget);
+    } else if (isEditMode) {
+        // NOT FROM NOC: Available = Remaining + Original
+        if (selectedYear === originalYear || !originalYear || originalYear === '') {
+            availableBudget = remainingBudget + originalCost;
+        }
+    }
     
     const newRemaining = availableBudget - enteredCost;
-    
-    // Update display
     budgetAmount.textContent = newRemaining.toFixed(2);
     
-    // Update styling and button state
     if (newRemaining < 0) {
         budgetReminder.classList.remove('budget-ok');
         budgetReminder.classList.add('budget-exceeded');
@@ -1126,9 +1140,12 @@ function updateBudgetReminder(enteredCost) {
         saveButton.style.opacity = '0.5';
         saveButton.style.cursor = 'not-allowed';
         
-        // Show error message
         if (budgetErrorMessage && budgetErrorText) {
-            budgetErrorText.textContent = 'Budget exceeded. Remaining budget: RM ' + remainingBudget.toFixed(2);
+            if (isFromNoc) {
+                budgetErrorText.textContent = 'Budget exceeded. This project is from NOC and locked to RM ' + nocBudget.toFixed(2);
+            } else {
+                budgetErrorText.textContent = 'Budget exceeded. Available budget: RM ' + availableBudget.toFixed(2);
+            }
             budgetErrorMessage.style.display = 'flex';
         }
     } else {
@@ -1139,7 +1156,6 @@ function updateBudgetReminder(enteredCost) {
         saveButton.style.opacity = '1';
         saveButton.style.cursor = 'pointer';
         
-        // Hide error message
         if (budgetErrorMessage) {
             budgetErrorMessage.style.display = 'none';
         }
@@ -1152,31 +1168,40 @@ function updateBudgetForYear() {
         return;
     }
     
-    // Fetch budget info for the selected year
     fetch('/pages/pre-project/budget-info?year=' + selectedYear)
         .then(response => response.json())
         .then(data => {
             const totalCostDisplay = document.getElementById('total_cost_display');
-            const budgetAmount = document.getElementById('budget-amount');
             const budgetText = document.getElementById('budget-text');
             
-            if (totalCostDisplay && budgetAmount) {
+            if (totalCostDisplay && budgetText) {
                 totalCostDisplay.dataset.remainingBudget = data.remaining_budget || 0;
-                budgetAmount.textContent = parseFloat(data.remaining_budget || 0).toFixed(2);
                 
-                // Update budget text
-                if (budgetText) {
-                    const isEditMode = document.getElementById('preProjectId').value !== '';
-                    if (isEditMode) {
-                        const originalCost = parseFloat(totalCostDisplay.dataset.originalCost) || 0;
-                        const availableBudget = parseFloat(data.remaining_budget || 0) + originalCost;
-                        budgetText.innerHTML = 'Available for this project: RM <span id="budget-amount">' + availableBudget.toFixed(2) + '</span>';
-                    } else {
-                        budgetText.innerHTML = 'Remaining budget: RM <span id="budget-amount">' + parseFloat(data.remaining_budget || 0).toFixed(2) + '</span>';
+                const isEditMode = document.getElementById('preProjectId').value !== '';
+                const isFromNoc = totalCostDisplay.dataset.isFromNoc === 'true';
+                
+                if (isEditMode && isFromNoc) {
+                    // FROM NOC: Available = NOC Budget (kos_baru) ONLY
+                    const nocBudget = parseFloat(totalCostDisplay.dataset.nocBudget) || 0;
+                    budgetText.innerHTML = 'Available for this project: RM <span id="budget-amount">' + nocBudget.toFixed(2) + '</span> <span style="color: #dc3545; font-size: 10px;">(LOCKED - FROM NOC)</span>';
+                    console.log('FROM NOC: Budget LOCKED to:', nocBudget);
+                } else if (isEditMode) {
+                    // NOT FROM NOC: Available = Remaining + Original
+                    const originalCost = parseFloat(totalCostDisplay.dataset.originalCost) || 0;
+                    const originalYear = totalCostDisplay.dataset.originalYear;
+                    let availableBudget = parseFloat(data.remaining_budget || 0);
+                    
+                    if (selectedYear === originalYear || !originalYear || originalYear === '') {
+                        availableBudget += originalCost;
                     }
+                    
+                    budgetText.innerHTML = 'Available for this project: RM <span id="budget-amount">' + availableBudget.toFixed(2) + '</span>';
+                } else {
+                    // CREATE MODE: Show remaining budget
+                    const remainingBudget = parseFloat(data.remaining_budget || 0);
+                    budgetText.innerHTML = 'Remaining budget: RM <span id="budget-amount">' + remainingBudget.toFixed(2) + '</span>';
                 }
                 
-                // Recalculate total to update budget reminder
                 calculateTotal();
             }
         })
@@ -1242,7 +1267,24 @@ function openCreateModal() {
     
     if (totalCostDisplay) {
         totalCostDisplay.dataset.originalCost = '0';
+        totalCostDisplay.dataset.originalYear = '';
+        totalCostDisplay.dataset.isFromNoc = 'false';
+        totalCostDisplay.dataset.nocBudget = '0';
     }
+    
+    // ENABLE all cost fields for create mode (reset from previous edit)
+    document.getElementById('actual_project_cost').readOnly = false;
+    document.getElementById('consultation_cost').readOnly = false;
+    document.getElementById('lss_inspection_cost').readOnly = false;
+    document.getElementById('sst').readOnly = false;
+    document.getElementById('others_cost').readOnly = false;
+    
+    // Remove grey background
+    document.getElementById('actual_project_cost').style.backgroundColor = '';
+    document.getElementById('consultation_cost').style.backgroundColor = '';
+    document.getElementById('lss_inspection_cost').style.backgroundColor = '';
+    document.getElementById('sst').style.backgroundColor = '';
+    document.getElementById('others_cost').style.backgroundColor = '';
     
     if (budgetText && budgetAmount) {
         const remainingBudget = parseFloat(totalCostDisplay.dataset.remainingBudget) || 0;
@@ -1276,7 +1318,6 @@ function openCreateModal() {
 
 function editPreProject(id) {
     // Fetch pre-project data via AJAX with cache busting
-    // Add timestamp to prevent browser caching old data
     const timestamp = new Date().getTime();
     fetch('/pages/pre-project/' + id + '/edit?_=' + timestamp, {
         cache: 'no-cache',
@@ -1287,11 +1328,16 @@ function editPreProject(id) {
     })
         .then(response => response.json())
         .then(data => {
-            console.log('Fetched data:', data); // Debug log
+            console.log('Fetched data:', data);
             document.getElementById('modalTitle').textContent = 'Edit Pre-Project';
             document.getElementById('preProjectForm').action = '/pages/pre-project/' + id;
             document.getElementById('formMethod').value = 'PUT';
             document.getElementById('preProjectId').value = id;
+            
+            // Check if this pre-project is from NOC (created from NOC page)
+            const isFromNoc = data.is_from_noc === true;
+            const nocBudget = data.noc_budget || 0;
+            console.log('Is From NOC:', isFromNoc, 'NOC Budget:', nocBudget);
             
             // Populate form fields
             document.getElementById('name').value = data.name || '';
@@ -1299,7 +1345,7 @@ function editPreProject(id) {
             document.getElementById('residen_category_id').value = data.residen_category_id || '';
             document.getElementById('agency_category_id').value = data.agency_category_id || '';
             
-            // Set combined Parliament/DUN dropdown for Basic Information
+            // Set combined Parliament/DUN dropdown
             if (data.parliament_id) {
                 document.getElementById('parliament_dun_basic').value = 'parliament_' + data.parliament_id;
             } else if (data.dun_basic_id) {
@@ -1326,7 +1372,7 @@ function editPreProject(id) {
             document.getElementById('project_ownership_id').value = data.project_ownership_id || '';
             document.getElementById('jkkk_name').value = data.jkkk_name || '';
             
-            // Set other radio buttons
+            // Set radio buttons
             if (data.site_layout) {
                 document.getElementById('site_layout_' + data.site_layout.toLowerCase()).checked = true;
             }
@@ -1351,7 +1397,6 @@ function editPreProject(id) {
                 document.getElementById('current_attachment').style.display = 'none';
             }
             
-            // Show/hide attachment container based on bill_of_quantity value
             const attachmentContainer = document.getElementById('attachment_container');
             if (data.bill_of_quantity === 'Yes') {
                 attachmentContainer.style.display = 'block';
@@ -1361,15 +1406,48 @@ function editPreProject(id) {
                 document.getElementById('bill_of_quantity_attachment').required = false;
             }
             
-            // Set original cost for edit mode budget calculation
+            // Set budget data
             const totalCostDisplay = document.getElementById('total_cost_display');
             if (totalCostDisplay) {
                 totalCostDisplay.dataset.originalCost = data.total_cost || 0;
+                totalCostDisplay.dataset.originalYear = data.project_year || '';
+                totalCostDisplay.dataset.isFromNoc = isFromNoc ? 'true' : 'false';
+                totalCostDisplay.dataset.nocBudget = nocBudget;
+                console.log('Budget data - originalCost:', data.total_cost, 'isFromNoc:', isFromNoc, 'nocBudget:', nocBudget);
             }
             
-            // Fetch budget info for the project's year
-            updateBudgetForYear();
+            // If from NOC, make all cost fields DISABLED
+            if (isFromNoc) {
+                document.getElementById('actual_project_cost').readOnly = true;
+                document.getElementById('consultation_cost').readOnly = true;
+                document.getElementById('lss_inspection_cost').readOnly = true;
+                document.getElementById('sst').readOnly = true;
+                document.getElementById('others_cost').readOnly = true;
+                
+                // Grey background
+                document.getElementById('actual_project_cost').style.backgroundColor = '#f5f5f5';
+                document.getElementById('consultation_cost').style.backgroundColor = '#f5f5f5';
+                document.getElementById('lss_inspection_cost').style.backgroundColor = '#f5f5f5';
+                document.getElementById('sst').style.backgroundColor = '#f5f5f5';
+                document.getElementById('others_cost').style.backgroundColor = '#f5f5f5';
+                
+                console.log('FROM NOC: Cost fields DISABLED');
+            } else {
+                // Editable
+                document.getElementById('actual_project_cost').readOnly = false;
+                document.getElementById('consultation_cost').readOnly = false;
+                document.getElementById('lss_inspection_cost').readOnly = false;
+                document.getElementById('sst').readOnly = false;
+                document.getElementById('others_cost').readOnly = false;
+                
+                document.getElementById('actual_project_cost').style.backgroundColor = '';
+                document.getElementById('consultation_cost').style.backgroundColor = '';
+                document.getElementById('lss_inspection_cost').style.backgroundColor = '';
+                document.getElementById('sst').style.backgroundColor = '';
+                document.getElementById('others_cost').style.backgroundColor = '';
+            }
             
+            updateBudgetForYear();
             calculateTotal();
             document.getElementById('preProjectModal').classList.add('show');
         })

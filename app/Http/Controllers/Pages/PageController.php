@@ -1786,6 +1786,15 @@ class PageController extends Controller
             'project' // Load project relationship to check if transferred
         ])->findOrFail($id);
         
+        // Check if this pre-project was created from NOC (exists in noc_project table as nama_projek_baru)
+        $nocEntry = \DB::table('noc_project')
+            ->where('nama_projek_baru', $preProject->name)
+            ->first();
+        
+        // If found in NOC, get the kos_baru value
+        $isFromNoc = $nocEntry !== null;
+        $nocBudget = $isFromNoc ? $nocEntry->kos_baru : null;
+        
         // Get NOC changes if this pre-project has been transferred to a project
         $nocChanges = [];
         $nocs = [];
@@ -1830,6 +1839,8 @@ class PageController extends Controller
         
         $preProject->noc_changes = $nocChanges;
         $preProject->nocs = $nocs;
+        $preProject->is_from_noc = $isFromNoc;
+        $preProject->noc_budget = $nocBudget;
         
         return response()->json($preProject);
     }

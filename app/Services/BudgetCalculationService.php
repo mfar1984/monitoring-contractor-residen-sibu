@@ -59,10 +59,10 @@ class BudgetCalculationService
                     $sourceName = $parliament->name;
                     
                     // Calculate total allocated for this Parliament in this year
-                    // Exclude pre-projects that have been cancelled in projects table
+                    // Exclude pre-projects that have been cancelled, rejected, or in NOC
                     $totalAllocated = PreProject::where('parliament_id', $parliamentId)
                         ->where('project_year', $year)
-                        ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                        ->whereNotIn('status', ['Cancelled', 'Rejected', 'NOC'])
                         ->whereDoesntHave('project', function($query) {
                             $query->where('status', 'Projek Dibatalkan');
                         })
@@ -86,10 +86,10 @@ class BudgetCalculationService
                     $sourceName = $dun->name;
                     
                     // Calculate total allocated for this DUN in this year
-                    // Exclude pre-projects that have been cancelled in projects table
+                    // Exclude pre-projects that have been cancelled, rejected, or in NOC
                     $totalAllocated = PreProject::where('dun_id', $dunId)
                         ->where('project_year', $year)
-                        ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                        ->whereNotIn('status', ['Cancelled', 'Rejected', 'NOC'])
                         ->whereDoesntHave('project', function($query) {
                             $query->where('status', 'Projek Dibatalkan');
                         })
@@ -321,20 +321,20 @@ class BudgetCalculationService
                 ->sum('budget');
             
             // Calculate total allocated to Parliament pre-projects
-            // Exclude pre-projects that have been cancelled in projects table
+            // Exclude pre-projects that have been cancelled, rejected, or in NOC
             $totalAllocatedParliament = PreProject::whereNotNull('parliament_id')
                 ->where('project_year', $year)
-                ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                ->whereNotIn('status', ['Cancelled', 'Rejected', 'NOC'])
                 ->whereDoesntHave('project', function($query) {
                     $query->where('status', 'Projek Dibatalkan');
                 })
                 ->sum('total_cost');
             
             // Calculate total allocated to DUN pre-projects
-            // Exclude pre-projects that have been cancelled in projects table
+            // Exclude pre-projects that have been cancelled, rejected, or in NOC
             $totalAllocatedDun = PreProject::whereNotNull('dun_id')
                 ->where('project_year', $year)
-                ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                ->whereNotIn('status', ['Cancelled', 'Rejected', 'NOC'])
                 ->whereDoesntHave('project', function($query) {
                     $query->where('status', 'Projek Dibatalkan');
                 })
