@@ -1442,3 +1442,534 @@ Before marking an issue as resolved:
 ### Remember
 
 **"Fix one thing, check everything related"** - A single change can affect multiple components. Always trace the full flow from route → controller → model → database → view and back.
+
+
+## User Access Control & Data Isolation System
+
+### CRITICAL: Data Isolation Rules
+
+**IMPLEMENTATION STATUS: COMPLETE** ✅
+
+The system implements strict data isolation based on user categories. Each user type can ONLY see and manage data related to their assigned organization.
+
+### User Categories & Master Data
+
+The system has 4 main user categories, each linked to their respective Master Data:
+
+#### 1. RESIDEN (Administrator)
+**Master Data Pages:**
+- `/pages/master-data/residen` - Residen categories management
+- `/pages/users-id/residen` - Residen user accounts
+
+**Access Level:**
+- ✅ **FULL ACCESS** to ALL data across the system
+- ✅ Can view and manage ALL pre-projects, projects, and NOCs
+- ✅ Exclusive access to **System Settings** section
+- ✅ Can approve Pre-Projects and NOCs
+
+**Database Fields:**
+- `users.residen_category_id` → `residen_categories.id`
+
+**Special Privileges:**
+- Only Residen users can access System Settings and all sub-sections
+- Can be assigned as Pre-Project Approvers
+- Can be assigned as NOC First/Second Approvers
+
+---
+
+#### 2. AGENCY (Government Agencies)
+**Master Data Pages:**
+- `/pages/master-data/agency` - Agency categories (DID, JKR, JBAB, etc.)
+- `/pages/users-id/agency` - Agency user accounts
+
+**Access Level:**
+- ⚠️ **ISOLATED** - Can ONLY see data for their assigned Agency
+- ✅ Can view/manage Pre-Projects where `agency_category_id` matches their agency
+- ✅ Can view/manage Projects where `agency_category_id` matches their agency
+- ✅ Can view/manage NOCs that contain projects from their agency
+- ❌ CANNOT access System Settings
+
+**Database Fields:**
+- `users.agency_category_id` → `agency_categories.id`
+- `pre_projects.agency_category_id` → `agency_categories.id`
+- `projects.agency_category_id` → `agency_categories.id`
+
+**Filtering Logic:**
+```php
+if ($user->agency_category_id) {
+    // Pre-Projects filtering
+    $query->where('agency_category_id', $user->agency_category_id);
+    
+    // Projects filtering
+    $query->where('agency_category_id', $user->agency_category_id);
+    
+    // NOCs filtering (through projects relationship)
+    $query->whereHas('projects', function($q) use ($user) {
+        $q->where('agency_category_id', $user->agency_category_id);
+    });
+}
+```
+
+**Example:**
+- User: `did@did.gov.my` (Agency: DID)
+- Can ONLY see Pre-Projects/Projects with `agency_category_id = DID`
+- CANNOT see data from JKR, JBAB, or other agencies
+
+---
+
+#### 3. PARLIAMENT / DUN (Member of Parliament)
+**Master Data Pages:**
+- `/pages/master-data/parliaments` - Parliament constituencies
+- `/pages/master-data/duns` - DUN (State Assembly) constituencies
+- `/pages/users-id/parliament` - Parliament/DUN user accounts
+
+**Access Level:**
+- ⚠️ **ISOLATED** - Can ONLY see data for their assigned Parliament or DUN
+- ✅ Can view/manage Pre-Projects for their Parliament/DUN
+- ✅ Can view/manage Projects for their Parliament/DUN
+- ✅ Can create and view NOCs for their Parliament/DUN
+- ❌ CANNOT access System Settings
+
+**Database Fields:**
+- `users.parliament_id` → `parliaments.id` (for Parliament users)
+- `users.dun_id` → `duns.id` (for DUN users)
+- `pre_projects.parliament_id` → `parliaments.id`
+- `pre_projects.dun_basic_id` → `duns.id`
+- `projects.parliament_id` → `parliaments.id`
+- `projects.dun_basic_id` → `duns.id`
+- `nocs.parliament_id` → `parliaments.id`
+- `nocs.dun_id` → `duns.id`
+
+**Filtering Logic:**
+```php
+if ($user->parliament_id) {
+    // Parliament user - filter by parliament_id
+    $query->where('parliament_id', $user->parliament_id);
+} elseif ($user->dun_id) {
+    // DUN user - filter by dun_basic_id
+    $query->where('dun_basic_id', $user->dun_id);
+}
+```
+
+**Example:**
+- User: `wongsoonkoh@sibu.org.my` (DUN: Bawang Assan)
+- Can ONLY see Pre-Projects/Projects with `dun_basic_id = Bawang Assan`
+- CANNOT see data from DUN Nangka or other constituencies
+
+---
+
+#### 4. CONTRACTOR
+**Master Data Pages:**
+- `/pages/master-data/contractor` - Contractor companies
+- `/pages/users-id/contractor` - Contractor user accounts
+
+**Access Level:**
+- ⚠️ **ISOLATED** - Can ONLY see data for their assigned Contractor company
+- ✅ Can view Projects assigned to their contractor company
+- ❌ CANNOT access System Settings
+- ❌ CANNOT create or edit Pre-Projects/Projects (view-only access)
+
+**Database Fields:**
+- `users.contractor_category_id` → `contractor_categories.id`
+- `projects.contractor_category_id` → `contractor_categories.id` (future implementation)
+
+**Note:** Contractor isolation is planned for future implementation when contractor assignment to projects is added.
+
+---
+
+### Pages with Data Isolation
+
+**CRITICAL:** The following pages MUST implement data isolation filtering:
+
+#### ✅ Pre-Project Pages
+- `/pages/pre-project` - Pre-Project list
+  - Parliament users: Filter by `parliament_id`
+  - DUN users: Filter by `dun_basic_id`
+  - Agency users: Filter by `agency_category_id`
+  - Residen users: See ALL
+
+#### ✅ Project Pages
+- `/pages/project` - Active projects list
+  - Parliament users: Filter by `parliament_id`
+  - DUN users: Filter by `dun_basic_id`
+  - Agency users: Filter by `agency_category_id`
+  - Residen users: See ALL
+
+#### ✅ Project Cancel Pages
+- `/pages/project-cancel` - Cancelled projects list
+  - Parliament users: Filter by `parliament_id`
+  - DUN users: Filter by `dun_basic_id`
+  - Agency users: Filter by `agency_category_id`
+  - Residen users: See ALL
+
+#### ✅ NOC Pages
+- `/pages/project/noc` - NOC list
+  - Parliament users: Filter by `parliament_id`
+  - DUN users: Filter by `dun_id`
+  - Agency users: Filter through `projects` relationship
+  - Residen users: See ALL
+
+---
+
+### System Settings Access Control
+
+**CRITICAL:** System Settings is EXCLUSIVE to Residen users and Admin only.
+
+**System Settings Pages:**
+- `/pages/general/application` - Application settings
+- `/pages/general/approver` - Approver settings
+- `/pages/general/translation` - Translation settings
+- `/pages/general/localization` - Localization settings
+- `/pages/general/maintenance` - Maintenance mode
+- `/pages/integrations/*` - All integration settings (Email, SMS, Webhook, API, Weather)
+
+**Access Rules:**
+- ✅ Residen users: FULL ACCESS
+- ❌ Agency users: NO ACCESS
+- ❌ Parliament/DUN users: NO ACCESS
+- ❌ Contractor users: NO ACCESS
+
+**Implementation:**
+```php
+// In middleware or controller
+if (!$user->residen_category_id) {
+    abort(403, 'Unauthorized access. System Settings is only accessible to Residen users.');
+}
+```
+
+---
+
+### Controller Implementation Pattern
+
+**CRITICAL:** ALL controllers that display Pre-Projects, Projects, or NOCs MUST follow this pattern:
+
+```php
+public function index()
+{
+    $user = auth()->user();
+    
+    // Start query
+    $query = Model::query();
+    
+    // Apply access control filter
+    if ($user->parliament_id) {
+        // Parliament user - filter by parliament_id
+        $query->where('parliament_id', $user->parliament_id);
+    } elseif ($user->dun_id) {
+        // DUN user - filter by dun_basic_id
+        $query->where('dun_basic_id', $user->dun_id);
+    } elseif ($user->agency_category_id) {
+        // Agency user - filter by agency_category_id
+        $query->where('agency_category_id', $user->agency_category_id);
+    }
+    // Residen users see ALL (no filter applied)
+    
+    $data = $query->get();
+    
+    return view('page', compact('data'));
+}
+```
+
+**For NOC filtering (special case):**
+```php
+public function projectNoc()
+{
+    $user = auth()->user();
+    
+    $nocsQuery = Noc::with(['parliament', 'dun', 'creator', 'projects']);
+    
+    if ($user->parliament_id) {
+        $nocsQuery->where('parliament_id', $user->parliament_id);
+    } elseif ($user->dun_id) {
+        $nocsQuery->where('dun_id', $user->dun_id);
+    } elseif ($user->agency_category_id) {
+        // Agency filtering through projects relationship
+        $nocsQuery->whereHas('projects', function($query) use ($user) {
+            $query->where('agency_category_id', $user->agency_category_id);
+        });
+    }
+    
+    $nocs = $nocsQuery->get();
+    
+    return view('pages.project-noc', compact('nocs'));
+}
+```
+
+---
+
+### Testing Data Isolation
+
+**CRITICAL:** When implementing new features, ALWAYS test with different user types:
+
+1. **Test with Residen user:**
+   - Should see ALL data
+   - Should have access to System Settings
+
+2. **Test with Agency user (e.g., `did@did.gov.my`):**
+   - Should ONLY see data for DID agency
+   - Should NOT see data from JKR, JBAB, etc.
+   - Should NOT access System Settings
+
+3. **Test with Parliament user:**
+   - Should ONLY see data for their Parliament
+   - Should NOT see data from other Parliaments
+
+4. **Test with DUN user (e.g., `wongsoonkoh@sibu.org.my`):**
+   - Should ONLY see data for their DUN (e.g., Bawang Assan)
+   - Should NOT see data from other DUNs (e.g., Nangka)
+
+---
+
+### Common Mistakes to Avoid
+
+❌ **Forgetting to add filtering in controller methods**
+❌ **Using wrong field name** (e.g., `dun_id` instead of `dun_basic_id`)
+❌ **Not handling all user types** (Parliament, DUN, Agency, Residen)
+❌ **Allowing non-Residen users to access System Settings**
+❌ **Not testing with different user accounts**
+❌ **Filtering NOCs by direct field instead of through relationship**
+
+---
+
+### Database Field Reference
+
+**Users Table:**
+- `residen_category_id` - Links to `residen_categories.id`
+- `agency_category_id` - Links to `agency_categories.id`
+- `parliament_id` - Links to `parliaments.id`
+- `dun_id` - Links to `duns.id`
+- `contractor_category_id` - Links to `contractor_categories.id`
+
+**Pre-Projects Table:**
+- `parliament_id` - Links to `parliaments.id`
+- `dun_basic_id` - Links to `duns.id` (NOT `dun_id`)
+- `agency_category_id` - Links to `agency_categories.id`
+
+**Projects Table:**
+- `parliament_id` - Links to `parliaments.id`
+- `dun_basic_id` - Links to `duns.id` (NOT `dun_id`)
+- `agency_category_id` - Links to `agency_categories.id`
+
+**NOCs Table:**
+- `parliament_id` - Links to `parliaments.id`
+- `dun_id` - Links to `duns.id`
+- **NO `agency_category_id`** - Filter through `projects` relationship
+
+---
+
+### Summary
+
+**Key Principles:**
+1. ✅ **Residen users** = FULL ACCESS to everything including System Settings
+2. ⚠️ **Agency users** = ISOLATED by `agency_category_id`
+3. ⚠️ **Parliament users** = ISOLATED by `parliament_id`
+4. ⚠️ **DUN users** = ISOLATED by `dun_basic_id` (NOT `dun_id`)
+5. ⚠️ **Contractor users** = ISOLATED by `contractor_category_id` (future)
+6. ❌ **System Settings** = Residen and Admin ONLY
+
+**Remember:** When implementing ANY new feature that displays Pre-Projects, Projects, or NOCs, you MUST implement data isolation filtering based on user category. Failure to do so will result in data leakage across organizations.
+
+
+## Database Verification Before Coding
+
+### CRITICAL: Always Verify Database Structure First
+
+**⚠️ THIS IS A GENERAL RULE FOR ALL DATABASE OPERATIONS ⚠️**
+
+This rule applies to:
+- ✅ ALL tables (users, pre_projects, projects, nocs, etc.)
+- ✅ ALL columns (full_name, username, email, status, etc.)
+- ✅ ALL relationships (belongsTo, hasMany, belongsToMany, etc.)
+- ✅ ALL queries (SELECT, INSERT, UPDATE, DELETE)
+- ✅ ALL features (new or existing)
+
+**NEVER make assumptions about database structure.** Before writing ANY code that interacts with the database, you MUST verify:
+
+1. ✅ **Table exists** in the database
+2. ✅ **Column exists** in the table
+3. ✅ **Column name is correct** (exact spelling, case-sensitive)
+4. ✅ **Data exists** in the table (if querying)
+5. ✅ **Relationships are correct** (foreign keys, pivot tables)
+6. ✅ **Data types are correct** (string, integer, decimal, date, etc.)
+
+### When to Apply This Rule
+
+**ALWAYS verify BEFORE:**
+- Creating new features
+- Modifying existing features
+- Adding new database queries
+- Updating models
+- Writing controllers
+- Creating views that display database data
+- Adding validation rules
+- Creating seeders
+- Writing tests
+
+**If something doesn't exist:**
+- ❌ DO NOT assume it exists
+- ✅ CREATE migration to add it
+- ✅ RUN migration
+- ✅ VERIFY it was created
+- ✅ THEN write code to use it
+
+### How to Verify Database Structure
+
+#### Step 1: Check Migration Files
+
+**ALWAYS read the migration files first** to understand the database structure:
+
+```bash
+# Find migration for specific table
+grep -r "create_users_table" database/migrations/
+grep -r "Schema::create('users'" database/migrations/
+
+# Find migration that adds specific column
+grep -r "full_name" database/migrations/
+```
+
+**Example:**
+```php
+// File: database/migrations/2026_02_14_082247_add_user_details_to_users_table.php
+Schema::table('users', function (Blueprint $table) {
+    $table->string('full_name')->after('username');  // ✅ Column name is 'full_name'
+    $table->string('email')->after('full_name');
+});
+```
+
+#### Step 2: Verify in Database (if needed)
+
+If migration files are unclear, verify directly in database:
+
+```sql
+-- Check if table exists
+SHOW TABLES LIKE 'users';
+
+-- Check table structure and column names
+DESCRIBE users;
+
+-- Check if column exists
+SHOW COLUMNS FROM users LIKE 'full_name';
+
+-- Check if data exists
+SELECT full_name FROM users LIMIT 5;
+```
+
+#### Step 3: Check Model Fillable/Casts
+
+Verify the model has the correct field definitions:
+
+```php
+// app/Models/User.php
+class User extends Model
+{
+    protected $fillable = [
+        'username',
+        'full_name',  // ✅ Must match database column name
+        'email',
+        'password',
+    ];
+}
+```
+
+---
+
+### Common Database Mistakes
+
+❌ **Assuming column name without checking**
+```php
+// WRONG - Assuming column is 'name'
+Auth::user()->name  // ❌ Column doesn't exist!
+```
+
+✅ **Verify column name first**
+```php
+// CORRECT - Checked migration, column is 'full_name'
+Auth::user()->full_name  // ✅ Column exists
+```
+
+---
+
+❌ **Using wrong field name**
+```php
+// WRONG - Using 'dun_id' instead of 'dun_basic_id'
+$query->where('dun_id', $user->dun_id);  // ❌ Wrong field name!
+```
+
+✅ **Use correct field name from migration**
+```php
+// CORRECT - Checked migration, field is 'dun_basic_id'
+$query->where('dun_basic_id', $user->dun_id);  // ✅ Correct field name
+```
+
+---
+
+❌ **Assuming relationship exists**
+```php
+// WRONG - Assuming NOC has agency_category_id
+$query->where('agency_category_id', $user->agency_category_id);  // ❌ Column doesn't exist in NOCs table!
+```
+
+✅ **Check migration, use correct relationship**
+```php
+// CORRECT - NOCs table doesn't have agency_category_id, filter through projects
+$query->whereHas('projects', function($q) use ($user) {
+    $q->where('agency_category_id', $user->agency_category_id);
+});  // ✅ Correct relationship
+```
+
+---
+
+### Verification Checklist
+
+Before writing code that uses database fields, verify:
+
+1. ✅ **Read migration file** to confirm table structure
+2. ✅ **Check column name** (exact spelling, case-sensitive)
+3. ✅ **Verify field exists** in the table
+4. ✅ **Check Model fillable** array includes the field
+5. ✅ **Test query** in database if unsure
+
+### Real-World Example: Header Welcome Message
+
+**User Request:** "Change header from email to Full Name"
+
+**WRONG Approach (Assuming):**
+```php
+// ❌ Assuming column is 'name' without checking
+<span>Welcome, {{ Auth::user()->name }}</span>
+```
+
+**CORRECT Approach (Verify First):**
+
+1. **Check migration:**
+```bash
+grep -r "full_name" database/migrations/
+```
+
+2. **Found migration:**
+```php
+// database/migrations/2026_02_14_082247_add_user_details_to_users_table.php
+$table->string('full_name')->after('username');  // ✅ Column is 'full_name'
+```
+
+3. **Use correct field:**
+```php
+// ✅ Verified column name is 'full_name'
+<span>Welcome, {{ Auth::user()->full_name }}</span>
+```
+
+---
+
+### Database Safety Rules
+
+1. **NEVER assume** column names - always verify
+2. **ALWAYS read** migration files before coding
+3. **CHECK relationships** before using whereHas/with
+4. **VERIFY data exists** before querying
+5. **TEST queries** in database if unsure
+
+### Remember
+
+**"Verify first, code second"** - Taking 2 minutes to check the database structure will save hours of debugging and prevent bugs in production.
+
+**Database structure is the source of truth.** Migration files define what exists in the database. Always consult them before writing code.

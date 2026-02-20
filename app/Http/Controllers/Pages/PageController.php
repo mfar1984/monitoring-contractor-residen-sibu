@@ -1461,7 +1461,7 @@ class PageController extends Controller
     {
         $user = auth()->user();
         
-        // Filter pre-projects based on user's parliament_id or dun_id
+        // Filter pre-projects based on user's parliament_id, dun_id, or agency_category_id
         $query = \App\Models\PreProject::with([
             'residenCategory', 
             'agencyCategory', 
@@ -1485,6 +1485,9 @@ class PageController extends Controller
         } elseif ($user->dun_id) {
             // User under DUN - only show pre-projects for their DUN
             $query->where('dun_basic_id', $user->dun_id);
+        } elseif ($user->agency_category_id) {
+            // User under Agency - only show pre-projects for their Agency
+            $query->where('agency_category_id', $user->agency_category_id);
         }
         // Admin/Residen users see all pre-projects (no filter)
         
@@ -1894,14 +1897,23 @@ class PageController extends Controller
     {
         $user = auth()->user();
         
-        // Filter NOCs based on user's Parliament/DUN
+        // Filter NOCs based on user's Parliament/DUN/Agency
         $nocsQuery = \App\Models\Noc::with(['parliament', 'dun', 'creator', 'projects']);
         
         if ($user->parliament_id) {
+            // Parliament user - show NOCs for their Parliament
             $nocsQuery->where('parliament_id', $user->parliament_id);
         } elseif ($user->dun_id) {
+            // DUN user - show NOCs for their DUN
             $nocsQuery->where('dun_id', $user->dun_id);
+        } elseif ($user->agency_category_id) {
+            // Agency user - show NOCs that contain projects from their Agency
+            // Check through noc_project pivot table for agency match
+            $nocsQuery->whereHas('projects', function($query) use ($user) {
+                $query->where('agency_category_id', $user->agency_category_id);
+            });
         }
+        // Admin/Residen users see all NOCs (no filter)
         
         $nocs = $nocsQuery->orderBy('created_at', 'desc')->get();
         
@@ -2212,14 +2224,21 @@ class PageController extends Controller
     {
         $user = auth()->user();
         
-        // Filter projects based on user's Parliament/DUN
+        // Filter projects based on user's Parliament/DUN/Agency
         $projectsQuery = \App\Models\Project::query();
         
+        // Apply access control filter
         if ($user->parliament_id) {
+            // User under Parliament - only show projects for their Parliament
             $projectsQuery->where('parliament_id', $user->parliament_id);
         } elseif ($user->dun_id) {
+            // User under DUN - only show projects for their DUN
             $projectsQuery->where('dun_basic_id', $user->dun_id);
+        } elseif ($user->agency_category_id) {
+            // User under Agency - only show projects for their Agency
+            $projectsQuery->where('agency_category_id', $user->agency_category_id);
         }
+        // Admin/Residen users see all projects (no filter)
         
         // Exclude projects with status "NOC" and "Projek Dibatalkan" - they should appear in Project Cancel tab
         $projects = $projectsQuery
@@ -2358,7 +2377,7 @@ class PageController extends Controller
     {
         $user = auth()->user();
         
-        // Filter cancelled projects based on user's parliament_id or dun_id
+        // Filter cancelled projects based on user's parliament_id, dun_id, or agency_category_id
         $query = Project::with([
             'parliament',
             'dun',
@@ -2376,6 +2395,9 @@ class PageController extends Controller
         } elseif ($user->dun_id) {
             // User under DUN - only show projects for their DUN
             $query->where('dun_basic_id', $user->dun_id);
+        } elseif ($user->agency_category_id) {
+            // User under Agency - only show projects for their Agency
+            $query->where('agency_category_id', $user->agency_category_id);
         }
         // Admin/Residen users see all cancelled projects (no filter)
         

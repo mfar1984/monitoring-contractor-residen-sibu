@@ -1,7 +1,7 @@
 <header class="topbar">
     <div class="topbar-content">
         <div class="topbar-welcome">
-            <span>Welcome, {{ Auth::user()->username }}</span>
+            <span>Welcome, {{ Auth::user()->full_name }}</span>
             <span class="topbar-separator">|</span>
             <span id="live-datetime"></span>
         </div>
