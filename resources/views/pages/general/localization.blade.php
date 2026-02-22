@@ -148,8 +148,8 @@
                                     <form method="POST" action="{{ route('pages.general.localization.language.delete', $language->id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this language?')">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" style="background: none; border: none; color: #dc3545; cursor: pointer; font-size: 12px; text-decoration: underline;">
-                                            Delete
+                                        <button type="submit" style="background: none; border: none; color: #dc3545; cursor: pointer; padding: 4px;" title="Delete">
+                                            <span class="material-symbols-outlined" style="font-size: 20px;">delete</span>
                                         </button>
                                     </form>
                                 @else

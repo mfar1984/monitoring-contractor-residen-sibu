@@ -49,12 +49,6 @@ class ProjectTransferService
         $preProject->status = 'Approved';
         $preProject->save();
         
-        \Log::info('Pre-Project transferred successfully', [
-            'pre_project_id' => $preProject->id,
-            'project_id' => $project->id,
-            'pre_project_status' => $preProject->status
-        ]);
-        
         return $project;
     }
     

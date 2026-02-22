@@ -40,6 +40,8 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::post('/pages/general/approver', [PageController::class, 'generalApproverStore'])->name('pages.general.approver.store');
     Route::get('/pages/general/translation', [PageController::class, 'generalTranslation'])->name('pages.general.translation');
     Route::post('/pages/general/translation', [PageController::class, 'generalTranslationStore'])->name('pages.general.translation.store');
+    Route::get('/pages/general/translation/export', [PageController::class, 'generalTranslationExport'])->name('pages.general.translation.export');
+    Route::post('/pages/general/translation/import', [PageController::class, 'generalTranslationImport'])->name('pages.general.translation.import');
     Route::get('/pages/master-data', [PageController::class, 'masterData'])->name('pages.master-data');
     Route::get('/pages/master-data/residen', [PageController::class, 'masterDataResiden'])->name('pages.master-data.residen');
     Route::post('/pages/master-data/residen', [PageController::class, 'masterDataResidenStore'])->name('pages.master-data.residen.store');

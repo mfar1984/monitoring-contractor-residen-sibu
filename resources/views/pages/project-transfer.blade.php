@@ -121,7 +121,7 @@
                         class="btn-secondary"
                         style="padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; text-decoration: none; display: inline-block;"
                     >
-                        Batal
+                        Cancel
                     </a>
                 </div>
             </form>

@@ -51,7 +51,6 @@ class AppServiceProvider extends ServiceProvider
             }
         } catch (\Exception $e) {
             // Silently fail if database is not ready (e.g., during migration)
-            \Log::debug('Could not load application settings: ' . $e->getMessage());
         }
     }
     
@@ -77,7 +76,6 @@ class AppServiceProvider extends ServiceProvider
             }
         } catch (\Exception $e) {
             // Silently fail if database is not ready
-            \Log::debug('Could not load localization settings: ' . $e->getMessage());
         }
     }
 }

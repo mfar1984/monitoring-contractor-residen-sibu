@@ -33,23 +33,8 @@ return new class extends Migration
                     'pre_project_name' => $preProject->name,
                     'error' => $e->getMessage()
                 ];
-                
-                // Log the error for manual review
-                \Log::error('Failed to transfer pre-project', [
-                    'pre_project_id' => $preProject->id,
-                    'pre_project_name' => $preProject->name,
-                    'error' => $e->getMessage()
-                ]);
             }
         }
-        
-        // Log summary
-        \Log::info('Pre-project transfer completed', [
-            'total_approved' => $approvedPreProjects->count(),
-            'successful_transfers' => $successCount,
-            'failed_transfers' => $failureCount,
-            'failures' => $failures
-        ]);
         
         // Output summary to console
         echo "\n";

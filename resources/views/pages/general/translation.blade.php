@@ -49,11 +49,37 @@
 
                 <!-- Content Area (Right) -->
                 <div style="background: white; border: 1px solid #e0e0e0; border-top-right-radius: 8px; border-bottom-right-radius: 8px; padding: 20px;">
-                    <div style="margin-bottom: 8px;">
-                        <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 3px;">
-                            English to {{ $languages->firstWhere('code', request('lang', 'en'))->name ?? 'English' }}
-                        </h2>
-                        <p style="color: #666; font-size: 12px; margin: 0;">Translate application text to {{ $languages->firstWhere('code', request('lang', 'en'))->name ?? 'English' }}</p>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                        <div>
+                            <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 3px;">
+                                English to {{ $languages->firstWhere('code', request('lang', 'en'))->name ?? 'English' }}
+                            </h2>
+                            <p style="color: #666; font-size: 12px; margin: 0;">Translate application text to {{ $languages->firstWhere('code', request('lang', 'en'))->name ?? 'English' }}</p>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <a href="{{ route('pages.general.translation.export', ['lang' => request('lang', 'en')]) }}" 
+                               style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background-color: #28a745; color: white; text-decoration: none; border-radius: 4px; font-size: 12px; transition: background-color 0.2s;"
+                               onmouseover="this.style.backgroundColor='#218838'" 
+                               onmouseout="this.style.backgroundColor='#28a745'"
+                               title="Export to CSV">
+                                <span class="material-symbols-outlined" style="font-size: 18px;">download</span>
+                                Export CSV
+                            </a>
+                            <button type="button" 
+                                    onclick="document.getElementById('importFileInput').click()"
+                                    style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; transition: background-color 0.2s;"
+                                    onmouseover="this.style.backgroundColor='#0056b3'" 
+                                    onmouseout="this.style.backgroundColor='#007bff'"
+                                    title="Import from CSV">
+                                <span class="material-symbols-outlined" style="font-size: 18px;">upload</span>
+                                Import CSV
+                            </button>
+                            <form id="importForm" method="POST" action="{{ route('pages.general.translation.import') }}" enctype="multipart/form-data" style="display: none;">
+                                @csrf
+                                <input type="hidden" name="language" value="{{ request('lang', 'en') }}">
+                                <input type="file" id="importFileInput" name="file" accept=".csv" onchange="document.getElementById('importForm').submit()">
+                            </form>
+                        </div>
                     </div>
 
                     <form method="POST" action="{{ route('pages.general.translation.store') }}">
@@ -86,10 +112,22 @@
                                 <input type="text" name="translations[pre_project]" value="{{ $translations['pre_project'] ?? '' }}" placeholder="Enter translation" style="width: 100%; padding: 5px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
                             </div>
 
+                            <!-- Drawing Lots -->
+                            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; align-items: center;">
+                                <input type="text" value="Drawing Lots" readonly style="width: 100%; padding: 5px 8px; border: 1px solid #e0e0e0; border-radius: 4px; background-color: #f5f5f5; font-size: 11px;">
+                                <input type="text" name="translations[drawing_lots]" value="{{ $translations['drawing_lots'] ?? '' }}" placeholder="Enter translation" style="width: 100%; padding: 5px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
+                            </div>
+
                             <!-- Contractor Analysis -->
                             <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; align-items: center;">
                                 <input type="text" value="Contractor Analysis" readonly style="width: 100%; padding: 5px 8px; border: 1px solid #e0e0e0; border-radius: 4px; background-color: #f5f5f5; font-size: 11px;">
                                 <input type="text" name="translations[contractor_analysis]" value="{{ $translations['contractor_analysis'] ?? '' }}" placeholder="Enter translation" style="width: 100%; padding: 5px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
+                            </div>
+
+                            <!-- Financial Analysis -->
+                            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; align-items: center;">
+                                <input type="text" value="Financial Analysis" readonly style="width: 100%; padding: 5px 8px; border: 1px solid #e0e0e0; border-radius: 4px; background-color: #f5f5f5; font-size: 11px;">
+                                <input type="text" name="translations[financial_analysis]" value="{{ $translations['financial_analysis'] ?? '' }}" placeholder="Enter translation" style="width: 100%; padding: 5px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
                             </div>
 
                             <!-- System Settings -->

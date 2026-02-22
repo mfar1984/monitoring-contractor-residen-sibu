@@ -364,6 +364,139 @@ class PageController extends Controller
             ->with('success', 'Translations saved successfully');
     }
 
+    // Export translations to CSV
+    public function generalTranslationExport(Request $request)
+    {
+        $lang = $request->get('lang', 'en');
+        $language = \App\Models\Language::where('code', $lang)->first();
+        
+        if (!$language) {
+            return redirect()->back()->with('error', 'Language not found');
+        }
+
+        $translations = \App\Models\IntegrationSetting::getSettings('translation_' . $lang);
+        
+        // Define all translation keys in correct order
+        $translationKeys = [
+            'overview' => 'Overview',
+            'project' => 'Project',
+            'pre_project' => 'Pre Project',
+            'drawing_lots' => 'Drawing Lots',
+            'contractor_analysis' => 'Contractor Analysis',
+            'financial_analysis' => 'Financial Analysis',
+            'system_settings' => 'System Settings',
+            'general' => 'General',
+            'master_data' => 'Master Data',
+            'group_roles' => 'Group Roles',
+            'users_id' => 'Users ID',
+            'integrations' => 'Integrations',
+            'activity_log' => 'Activity Log',
+        ];
+
+        // Create CSV content
+        $filename = 'translations_' . $lang . '_' . date('Y-m-d') . '.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $callback = function() use ($translationKeys, $translations, $language) {
+            $file = fopen('php://output', 'w');
+            
+            // Add BOM for UTF-8
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // Header row
+            fputcsv($file, ['English', $language->name]);
+            
+            // Data rows
+            foreach ($translationKeys as $key => $englishText) {
+                fputcsv($file, [
+                    $englishText,
+                    $translations[$key] ?? ''
+                ]);
+            }
+            
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    // Import translations from CSV
+    public function generalTranslationImport(Request $request)
+    {
+        $request->validate([
+            'language' => 'required|string|exists:languages,code',
+            'file' => 'required|file|mimes:csv,txt|max:2048',
+        ]);
+
+        $lang = $request->language;
+        
+        try {
+            $file = $request->file('file');
+            $handle = fopen($file->getRealPath(), 'r');
+            
+            // Define translation keys mapping (English text => key)
+            $keyMapping = [
+                'Overview' => 'overview',
+                'Project' => 'project',
+                'Pre Project' => 'pre_project',
+                'Drawing Lots' => 'drawing_lots',
+                'Contractor Analysis' => 'contractor_analysis',
+                'Financial Analysis' => 'financial_analysis',
+                'System Settings' => 'system_settings',
+                'General' => 'general',
+                'Master Data' => 'master_data',
+                'Group Roles' => 'group_roles',
+                'Users ID' => 'users_id',
+                'Integrations' => 'integrations',
+                'Activity Log' => 'activity_log',
+            ];
+            
+            $rowNumber = 0;
+            $imported = 0;
+            
+            while (($row = fgetcsv($handle, 1000, ',')) !== false) {
+                $rowNumber++;
+                
+                // Skip header row
+                if ($rowNumber === 1) {
+                    continue;
+                }
+                
+                if (count($row) >= 2) {
+                    $englishText = trim($row[0] ?? '');
+                    $translation = trim($row[1] ?? '');
+                    
+                    // Find the key for this English text
+                    if (isset($keyMapping[$englishText]) && !empty($translation)) {
+                        $key = $keyMapping[$englishText];
+                        
+                        \App\Models\IntegrationSetting::setSetting(
+                            'translation_' . $lang,
+                            $key,
+                            $translation
+                        );
+                        
+                        $imported++;
+                    }
+                }
+            }
+            
+            fclose($handle);
+            
+            return redirect()
+                ->route('pages.general.translation', ['lang' => $lang])
+                ->with('success', "Translations imported successfully ($imported items)");
+        } catch (\Exception $e) {
+            return redirect()
+                ->route('pages.general.translation', ['lang' => $lang])
+                ->with('error', 'Import failed: ' . $e->getMessage());
+        }
+    }
+
     // Language Management
     public function addLanguage(Request $request)
     {
@@ -372,14 +505,41 @@ class PageController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
+        $languageCode = strtolower($request->code);
+
         \App\Models\Language::create([
-            'code' => strtolower($request->code),
+            'code' => $languageCode,
             'name' => $request->name,
             'is_default' => false,
             'status' => 'Active'
         ]);
 
-        return redirect()->route('pages.general.localization')->with('success', 'Language added successfully');
+        // Automatically create translation entries for all menu items in correct order
+        $translationType = 'translation_' . $languageCode;
+        
+        // Define all translation keys in the correct order (matching sidebar menu structure)
+        $translationKeys = [
+            'overview',
+            'project',
+            'pre_project',
+            'drawing_lots',
+            'contractor_analysis',
+            'financial_analysis',
+            'system_settings',
+            'general',
+            'master_data',
+            'group_roles',
+            'users_id',
+            'integrations',
+            'activity_log',
+        ];
+
+        // Create empty translation entries for each key
+        foreach ($translationKeys as $key) {
+            \App\Models\IntegrationSetting::setSetting($translationType, $key, '');
+        }
+
+        return redirect()->route('pages.general.localization')->with('success', 'Language added successfully. Please go to Translation page to add translations.');
     }
 
     public function deleteLanguage($id)
@@ -391,9 +551,14 @@ class PageController extends Controller
             return redirect()->route('pages.general.localization')->with('error', 'Cannot delete default language');
         }
 
+        // Delete all translation entries for this language
+        $translationType = 'translation_' . $language->code;
+        \App\Models\IntegrationSetting::where('type', $translationType)->delete();
+
+        // Delete the language record
         $language->delete();
 
-        return redirect()->route('pages.general.localization')->with('success', 'Language deleted successfully');
+        return redirect()->route('pages.general.localization')->with('success', 'Language and all its translations deleted successfully');
     }
 
     public function masterData(): RedirectResponse
@@ -1438,7 +1603,6 @@ class PageController extends Controller
                 ], 400);
             }
         } catch (\Exception $e) {
-            \Log::error('Email test failed: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send test email: ' . $e->getMessage()
@@ -1537,7 +1701,6 @@ class PageController extends Controller
             }
 
         } catch (\Exception $e) {
-            \Log::error('Weather test failed: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to test weather API: ' . $e->getMessage()
@@ -2177,11 +2340,6 @@ class PageController extends Controller
             $nocToPreProjectService = app(\App\Services\NocToPreProjectService::class);
             $createdPreProjects = $nocToPreProjectService->processNocSubmission($noc);
 
-            // Log created pre-projects for tracking
-            if (count($createdPreProjects) > 0) {
-                \Illuminate\Support\Facades\Log::info("NOC {$noc->noc_number} created " . count($createdPreProjects) . " pre-project records for EPU approval");
-            }
-
             $message = 'NOC is waiting for approval';
             if (count($createdPreProjects) > 0) {
                 $message .= '. ' . count($createdPreProjects) . ' project change(s) sent to Pre-Project for EPU approval.';
@@ -2219,13 +2377,6 @@ class PageController extends Controller
             // AUTOMATICALLY CREATE PRE-PROJECTS FROM NOC DATA AFTER FINAL APPROVAL
             $nocService = new \App\Services\NocToPreProjectService();
             $createdPreProjects = $nocService->processNocSubmission($noc);
-            
-            // Log the created pre-projects
-            \Log::info('NOC approved with pre-projects created', [
-                'noc_id' => $noc->id,
-                'noc_number' => $noc->noc_number,
-                'pre_projects_created' => count($createdPreProjects),
-            ]);
             
             return redirect()->back()->with('success', 'NOC approved (Final Approval). ' . count($createdPreProjects) . ' pre-project(s) created successfully.');
         }
@@ -2547,11 +2698,6 @@ class PageController extends Controller
             return redirect()->route('pages.project')
                 ->with('success', 'Pre-Project berjaya ditransfer ke Project. No Projek: ' . $project->project_number);
         } catch (\Exception $e) {
-            \Log::error('Failed to transfer pre-project to project', [
-                'pre_project_id' => $preProject->id,
-                'error' => $e->getMessage()
-            ]);
-            
             return redirect()->route('pages.project.transfer.create')
                 ->with('error', 'Gagal transfer Pre-Project. Sila cuba lagi.');
         }

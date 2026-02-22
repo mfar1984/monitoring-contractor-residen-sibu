@@ -42,22 +42,8 @@ return new class extends Migration
                     'noc_id' => $nocProject->noc_id,
                     'old_pre_project_id' => $nocProject->project_id,
                 ];
-                
-                \Log::warning('NOC project record could not be mapped to project', [
-                    'noc_project_id' => $nocProject->id,
-                    'noc_id' => $nocProject->noc_id,
-                    'pre_project_id' => $nocProject->project_id,
-                ]);
             }
         }
-        
-        // Log summary
-        \Log::info('NOC data mapping completed', [
-            'total_records' => $nocProjects->count(),
-            'mapped' => $mappedCount,
-            'unmapped' => $unmappedCount,
-            'unmapped_records' => $unmappedRecords
-        ]);
         
         // Output summary to console
         echo "\n";
