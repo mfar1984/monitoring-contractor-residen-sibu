@@ -17,6 +17,99 @@ class PageController extends Controller
         return view('pages.overview');
     }
 
+    // Profile Page
+    public function profile(): View
+    {
+        $user = auth()->user();
+        return view('pages.profile', compact('user'));
+    }
+
+    // Profile Update
+    public function profileUpdate(Request $request)
+    {
+        $user = auth()->user();
+        
+        $request->validate([
+            'full_name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+            'contact_number' => 'nullable|string|max:20',
+            'department' => 'nullable|string|max:255',
+            'current_password' => 'nullable|required_with:new_password',
+            'new_password' => 'nullable|min:8|confirmed',
+        ]);
+
+        // Update basic info
+        $user->full_name = $request->full_name;
+        $user->email = $request->email;
+        $user->contact_number = $request->contact_number;
+        $user->department = $request->department;
+
+        // Update password if provided
+        if ($request->filled('current_password')) {
+            if (!\Hash::check($request->current_password, $user->password)) {
+                return redirect()->back()->withErrors(['current_password' => 'Current password is incorrect']);
+            }
+            $user->password = \Hash::make($request->new_password);
+        }
+
+        $user->save();
+
+        return redirect()->route('pages.profile')->with('success', 'Profile updated successfully');
+    }
+
+    // Settings Page
+    public function settings(): View
+    {
+        $user = auth()->user();
+        
+        // Get user-specific settings
+        $settings = \App\Models\IntegrationSetting::getSettings('user_' . $user->id);
+        
+        return view('pages.settings', compact('user', 'settings'));
+    }
+
+    // Settings Update
+    public function settingsUpdate(Request $request)
+    {
+        $user = auth()->user();
+        
+        $request->validate([
+            'locale' => 'nullable|string|in:en,ms,zh',
+            'timezone' => 'nullable|string',
+            'items_per_page' => 'nullable|integer|min:10|max:100',
+            'date_format' => 'nullable|string|in:d/m/Y,m/d/Y,Y-m-d,d M Y,d F Y',
+            'time_format' => 'nullable|string|in:H:i:s,h:i A,h:i:s A',
+            'currency' => 'nullable|string|in:MYR,USD,SGD,EUR',
+        ]);
+
+        // Save localization preferences
+        if ($request->has('locale')) {
+            \App\Models\IntegrationSetting::setSetting('user_' . $user->id, 'locale', $request->locale);
+            // Apply locale immediately
+            app()->setLocale($request->locale);
+            session(['locale' => $request->locale]);
+        }
+        if ($request->has('timezone')) {
+            \App\Models\IntegrationSetting::setSetting('user_' . $user->id, 'timezone', $request->timezone);
+        }
+        if ($request->has('currency')) {
+            \App\Models\IntegrationSetting::setSetting('user_' . $user->id, 'currency', $request->currency);
+        }
+
+        // Save display preferences
+        if ($request->has('items_per_page')) {
+            \App\Models\IntegrationSetting::setSetting('user_' . $user->id, 'items_per_page', $request->items_per_page);
+        }
+        if ($request->has('date_format')) {
+            \App\Models\IntegrationSetting::setSetting('user_' . $user->id, 'date_format', $request->date_format);
+        }
+        if ($request->has('time_format')) {
+            \App\Models\IntegrationSetting::setSetting('user_' . $user->id, 'time_format', $request->time_format);
+        }
+        
+        return redirect()->route('pages.settings')->with('success', 'Settings updated successfully');
+    }
+
     // General Settings - System Information
     public function generalSystem(): View
     {
@@ -2466,7 +2559,115 @@ class PageController extends Controller
 
     public function contractorAnalysis(): View
     {
-        return view('pages.contractor-analysis');
+        $user = auth()->user();
+        
+        $transfersQuery = \App\Models\ContractorAnalysisTransfer::with(['creator', 'agency', 'projects']);
+        
+        // Apply access control filtering
+        if ($user->agency_category_id) {
+            $transfersQuery->where('agency_category_id', $user->agency_category_id);
+        }
+        // Residen users see all transfers (no filter)
+        
+        $transfers = $transfersQuery->orderBy('created_at', 'desc')->get();
+        
+        return view('pages.contractor-analysis', compact('transfers'));
+    }
+
+    public function contractorAnalysisCreate(): View
+    {
+        $user = auth()->user();
+        
+        // Check authorization
+        if (!$user->agency_category_id && !$user->residen_category_id) {
+            abort(403, 'Unauthorized. Only Agency and Residen users can create transfers.');
+        }
+        
+        $availableProjects = \App\Models\ContractorAnalysisTransfer::getAvailableProjects($user);
+        $agencies = \App\Models\AgencyCategory::where('status', 'Active')->get();
+        
+        return view('pages.contractor-analysis-create', compact('availableProjects', 'agencies'));
+    }
+
+    public function contractorAnalysisStore(\App\Http\Requests\StoreContractorAnalysisTransferRequest $request)
+    {
+        $user = auth()->user();
+        $service = new \App\Services\ContractorAnalysisTransferService();
+        
+        try {
+            $transfer = $service->createTransfer(
+                $request->validated(),
+                $request->file('attachment'),
+                $user
+            );
+            
+            return redirect()
+                ->route('pages.contractor-analysis')
+                ->with('success', 'Transfer created successfully: ' . $transfer->transfer_number);
+                
+        } catch (\Exception $e) {
+            return back()
+                ->withInput()
+                ->with('error', 'Failed to create transfer: ' . $e->getMessage());
+        }
+    }
+
+    public function contractorAnalysisShow($id): View
+    {
+        $user = auth()->user();
+        
+        $transfer = \App\Models\ContractorAnalysisTransfer::with(['creator', 'agency', 'projects'])
+            ->findOrFail($id);
+        
+        // Verify access
+        if (!$user->residen_category_id && $user->agency_category_id !== $transfer->agency_category_id) {
+            abort(403, 'Unauthorized access to this transfer');
+        }
+        
+        return view('pages.contractor-analysis-show', compact('transfer'));
+    }
+
+    public function contractorAnalysisDelete($id)
+    {
+        $user = auth()->user();
+        $service = new \App\Services\ContractorAnalysisTransferService();
+        
+        $transfer = \App\Models\ContractorAnalysisTransfer::findOrFail($id);
+        
+        // Verify access
+        if (!$user->residen_category_id && $user->agency_category_id !== $transfer->agency_category_id) {
+            abort(403, 'Unauthorized to delete this transfer');
+        }
+        
+        try {
+            $service->deleteTransfer($transfer);
+            
+            return redirect()
+                ->route('pages.contractor-analysis')
+                ->with('success', 'Transfer deleted successfully');
+                
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to delete transfer: ' . $e->getMessage());
+        }
+    }
+
+    public function contractorAnalysisDownload($id)
+    {
+        $user = auth()->user();
+        $service = new \App\Services\ContractorAnalysisTransferService();
+        
+        $transfer = \App\Models\ContractorAnalysisTransfer::findOrFail($id);
+        
+        try {
+            return $service->downloadAttachment($transfer, $user);
+        } catch (\Exception $e) {
+            abort(403, $e->getMessage());
+        }
+    }
+
+    public function financialAnalysis(): View
+    {
+        return view('pages.financial-analysis');
     }
 
     public function masterDataProjectOwnership(): View

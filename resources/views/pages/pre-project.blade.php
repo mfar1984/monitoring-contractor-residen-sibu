@@ -117,16 +117,23 @@
             @php
                 // Show Create button for Admin, Residen, Parliament and DUN users
                 // Hide for Agency and Contractor users
-                // Disable if budget is 0
                 $isAdmin = $user->username === 'admin' || $user->role === 'admin';
-                $canCreate = $isAdmin || $user->residen_category_id || $user->parliament_category_id || $user->dun_id;
+                $canCreate = $isAdmin || $user->residen_category_id || $user->parliament_id || $user->dun_id;
                 
-                // Check if budget is 0 (disable create button)
-                $hasBudget = isset($budgetInfo) && $budgetInfo['total_budget'] > 0;
+                // Check if budget is 0 (disable create button for Parliament/DUN users only)
+                // Residen users don't need budget check as they can create for any Parliament/DUN
+                if ($user->residen_category_id || $isAdmin) {
+                    // Residen and Admin can always create (they will select Parliament/DUN in form)
+                    $hasBudget = true;
+                } else {
+                    // Parliament/DUN users need budget
+                    $hasBudget = isset($budgetInfo) && $budgetInfo['total_budget'] > 0;
+                }
+                
                 $createButtonText = $canCreate && $hasBudget ? 'Create Pre-Project' : '';
                 
-                // Show warning if no budget
-                $showBudgetWarning = $canCreate && !$hasBudget;
+                // Show warning if no budget (only for Parliament/DUN users)
+                $showBudgetWarning = $canCreate && !$hasBudget && !$user->residen_category_id && !$isAdmin;
             @endphp
 
             <x-data-table
@@ -178,10 +185,22 @@
                             </button>
                             
                             @php
-                                $isParliamentUser = $user->parliament_category_id || $user->dun_id;
+                                // Check if user is Parliament/DUN user
+                                $isParliamentUser = $user->parliament_id || $user->dun_id;
+                                
+                                // Check if this pre-project belongs to the user
+                                $ownsPreProject = false;
+                                if ($user->parliament_id && $preProject->parliament_id == $user->parliament_id) {
+                                    $ownsPreProject = true;
+                                } elseif ($user->dun_id && $preProject->dun_basic_id == $user->dun_id) {
+                                    $ownsPreProject = true;
+                                } elseif ($user->residen_category_id) {
+                                    // Residen users can edit all pre-projects
+                                    $ownsPreProject = true;
+                                }
                             @endphp
                             
-                            @if($preProject->status === 'Waiting for Complete Form' && $isParliamentUser)
+                            @if($preProject->status === 'Waiting for Complete Form' && $ownsPreProject)
                                 <!-- Edit button for incomplete forms -->
                                 <button class="action-btn action-edit" title="Edit" onclick="editPreProject({{ $preProject->id }})">
                                     <span class="material-symbols-outlined">edit</span>
@@ -207,12 +226,12 @@
                                 <button class="action-btn action-reject" title="Reject" onclick="rejectPreProject({{ $preProject->id }}, '{{ $preProject->name }}')">
                                     <span class="material-symbols-outlined">cancel</span>
                                 </button>
-                            @elseif($preProject->status !== 'NOC' && $preProject->status !== 'Approved' && $preProject->status !== 'Waiting for EPU Approval' && !in_array($preProject->status, ['Waiting for Approval', 'Waiting for Approver 1']))
+                            @elseif($preProject->status !== 'NOC' && $preProject->status !== 'Approved' && $preProject->status !== 'Waiting for EPU Approval' && !in_array($preProject->status, ['Waiting for Approval', 'Waiting for Approver 1']) && $ownsPreProject)
                                 <button class="action-btn action-edit" title="Edit" onclick="editPreProject({{ $preProject->id }})">
                                     <span class="material-symbols-outlined">edit</span>
                                 </button>
                                 <button class="action-btn action-delete" title="Delete" onclick="deletePreProject({{ $preProject->id }}, '{{ $preProject->name }}')">
-                                    <span class="material-symbols-outlined">delete</span>
+                                    <span class="material-symbols-oriented">delete</span>
                                 </button>
                             @else
                                 <button class="action-btn" title="Edit" disabled style="opacity: 0.3; cursor: not-allowed;">

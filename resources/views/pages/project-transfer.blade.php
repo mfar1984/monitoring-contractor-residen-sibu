@@ -11,38 +11,39 @@
 @endsection
 
 @section('content')
-    <div class="content-wrapper">
-        <div class="content-header">
-            <div>
-                <h1 class="content-title">Transfer Project</h1>
+    @if(session('success'))
+    <div style="padding: 10px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; margin-bottom: 15px;">
+        {{ session('success') }}
+    </div>
+    @endif
+
+    @if(session('error'))
+    <div style="padding: 10px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 15px;">
+        {{ session('error') }}
+    </div>
+    @endif
+
+    @if($errors->any())
+    <div style="padding: 10px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 15px;">
+        <ul style="margin: 0; padding-left: 20px;">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
+
+    <div style="background: white; padding: 24px; border-radius: 8px; border: 1px solid #e0e0e0;">
+        <div class="content-header" style="margin-bottom: 24px;">
+            <div class="content-header-left">
+                <h3>Transfer Project</h3>
                 <p class="content-description">Transfer Pre-Project yang telah diluluskan ke Project dengan No Projek dari EPU/RTP System</p>
             </div>
         </div>
+        
+        <div style="border-top: 1px solid #e0e0e0; margin-bottom: 24px;"></div>
 
-        @if(session('success'))
-        <div style="padding: 10px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; margin-bottom: 15px;">
-            {{ session('success') }}
-        </div>
-        @endif
-
-        @if(session('error'))
-        <div style="padding: 10px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 15px;">
-            {{ session('error') }}
-        </div>
-        @endif
-
-        @if($errors->any())
-        <div style="padding: 10px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 15px;">
-            <ul style="margin: 0; padding-left: 20px;">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-        @endif
-
-        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <form action="{{ route('pages.project.transfer.store') }}" method="POST">
+        <form action="{{ route('pages.project.transfer.store') }}" method="POST">
                 @csrf
 
                 <div style="margin-bottom: 20px;">
@@ -124,6 +125,5 @@
                     </a>
                 </div>
             </form>
-        </div>
     </div>
 @endsection

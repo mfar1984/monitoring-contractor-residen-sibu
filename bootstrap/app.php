@@ -14,6 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'maintenance' => \App\Http\Middleware\CheckMaintenanceMode::class,
         ]);
+        
+        // Apply user-specific locale after authentication
+        $middleware->web(append: [
+            \App\Http\Middleware\ApplyUserLocale::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

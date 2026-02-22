@@ -30,11 +30,11 @@
                     <span class="material-symbols-outlined dropdown-arrow">expand_more</span>
                 </button>
                 <div class="user-dropdown-menu" id="userDropdownMenu">
-                    <a href="#" class="dropdown-item">
+                    <a href="{{ route('pages.profile') }}" class="dropdown-item">
                         <span class="material-symbols-outlined">person</span>
                         Profile
                     </a>
-                    <a href="#" class="dropdown-item">
+                    <a href="{{ route('pages.settings') }}" class="dropdown-item">
                         <span class="material-symbols-outlined">settings</span>
                         Settings
                     </a>

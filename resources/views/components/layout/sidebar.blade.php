@@ -26,9 +26,25 @@
                         {{ \App\Helpers\TranslationHelper::trans('project', 'Project') }}
                     </a>
                 </li>
+            </ul>
+        </li>
+        
+        <!-- Drawing Lots expandable menu -->
+        <li class="menu-item expandable">
+            <a href="#" class="menu-link" onclick="toggleSubmenu(event)">
+                <span class="material-symbols-outlined menu-icon">casino</span>
+                <span>{{ \App\Helpers\TranslationHelper::trans('drawing_lots', 'Drawing Lots') }}</span>
+                <span class="material-symbols-outlined expand-icon">chevron_right</span>
+            </a>
+            <ul class="submenu">
                 <li class="submenu-item">
                     <a href="{{ route('pages.contractor-analysis') }}" class="submenu-link">
                         {{ \App\Helpers\TranslationHelper::trans('contractor_analysis', 'Contractor Analysis') }}
+                    </a>
+                </li>
+                <li class="submenu-item">
+                    <a href="{{ route('pages.financial-analysis') }}" class="submenu-link">
+                        {{ \App\Helpers\TranslationHelper::trans('financial_analysis', 'Financial Analysis') }}
                     </a>
                 </li>
             </ul>

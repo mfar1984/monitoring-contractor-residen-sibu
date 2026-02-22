@@ -19,6 +19,10 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     
     // Page routes
     Route::get('/pages/overview', [PageController::class, 'overview'])->name('pages.overview');
+    Route::get('/pages/profile', [PageController::class, 'profile'])->name('pages.profile');
+    Route::post('/pages/profile', [PageController::class, 'profileUpdate'])->name('pages.profile.update');
+    Route::get('/pages/settings', [PageController::class, 'settings'])->name('pages.settings');
+    Route::post('/pages/settings', [PageController::class, 'settingsUpdate'])->name('pages.settings.update');
     
     // General Settings routes
     Route::get('/pages/general', function() {
@@ -172,7 +176,15 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
         return redirect("/pages/project/noc/{$id}/print", 301);
     });
     
+    // Contractor Analysis routes
     Route::get('/pages/contractor-analysis', [PageController::class, 'contractorAnalysis'])->name('pages.contractor-analysis');
+    Route::get('/pages/contractor-analysis/create', [PageController::class, 'contractorAnalysisCreate'])->name('pages.contractor-analysis.create');
+    Route::post('/pages/contractor-analysis', [PageController::class, 'contractorAnalysisStore'])->name('pages.contractor-analysis.store');
+    Route::get('/pages/contractor-analysis/{id}', [PageController::class, 'contractorAnalysisShow'])->name('pages.contractor-analysis.show');
+    Route::delete('/pages/contractor-analysis/{id}', [PageController::class, 'contractorAnalysisDelete'])->name('pages.contractor-analysis.delete');
+    Route::get('/pages/contractor-analysis/{id}/download', [PageController::class, 'contractorAnalysisDownload'])->name('pages.contractor-analysis.download');
+    
+    Route::get('/pages/financial-analysis', [PageController::class, 'financialAnalysis'])->name('pages.financial-analysis');
 });
 
 // Redirect root to dashboard or login

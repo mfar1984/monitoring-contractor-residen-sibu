@@ -1973,3 +1973,170 @@ $table->string('full_name')->after('username');  // ✅ Column is 'full_name'
 **"Verify first, code second"** - Taking 2 minutes to check the database structure will save hours of debugging and prevent bugs in production.
 
 **Database structure is the source of truth.** Migration files define what exists in the database. Always consult them before writing code.
+
+
+## Context Limit and Conversation Continuation
+
+### CRITICAL: When Context Reaches Limit
+
+**⚠️ THIS RULE APPLIES WHEN CONVERSATION IS ABOUT TO BE SUMMARIZED ⚠️**
+
+When you see the message: **"The conversation in this session is about to reach the agent context limit. I'm summarizing earlier messages, and only the summary will be sent to the agent as context instead of the full text."**
+
+You MUST follow these rules to ensure task continuity:
+
+### 1. Current Task Preservation
+
+**ALWAYS include in the summary:**
+- ✅ **Current task status** (in-progress, completed, blocked)
+- ✅ **What was being worked on** (specific feature, bug fix, implementation)
+- ✅ **Files that were modified** (exact file paths)
+- ✅ **What was completed** (specific changes made)
+- ✅ **What remains to be done** (next steps, pending work)
+- ✅ **Any blockers or issues** encountered
+- ✅ **User's last request** (exact wording if possible)
+
+### 2. Summary Format
+
+When creating a summary for context transfer, use this structure:
+
+```markdown
+## SUMMARY OF CONVERSATION
+
+---
+
+## TASK [NUMBER]: [Task Name]
+
+**STATUS**: [in-progress/completed/blocked]
+
+**USER QUERIES**: [list of query numbers]
+
+**DETAILS**: 
+[Detailed description of what was done, including:
+- Problem identified
+- Solution implemented
+- Files modified with specific changes
+- Current state of implementation
+- What works and what doesn't]
+
+**NEXT STEPS**:
+[If task is in-progress, list specific next steps]
+
+**FILEPATHS**: 
+- `path/to/file1.php` (what was changed)
+- `path/to/file2.blade.php` (what was changed)
+
+---
+
+## USER CORRECTIONS AND INSTRUCTIONS
+
+[Any important corrections or clarifications from user]
+
+---
+
+## FILES TO READ
+
+**For Task [NUMBER] (In Progress)**:
+- `path/to/file.php` (reason why this file is important)
+
+**For Context**:
+- `path/to/related/file.php` (why this provides context)
+
+---
+
+USER QUERIES(most recent first):
+1. [Most recent user query]
+2. [Previous query]
+3. [Earlier query]
+---
+
+METADATA:
+The previous conversation had [X] messages.
+
+INSTRUCTIONS:
+Continue working until the user query has been fully addressed. Do not ask for clarification - proceed with the work based on the context provided.
+IMPORTANT: you need to read from the files to Read section
+```
+
+### 3. Task Continuation Rules
+
+**When resuming from a summary:**
+
+1. ✅ **Read the summary carefully** - Understand what was done before
+2. ✅ **Check task status** - Know if task is in-progress or completed
+3. ✅ **Read specified files** - Always read files listed in "FILES TO READ" section
+4. ✅ **Continue from where left off** - Don't restart completed work
+5. ✅ **Verify previous changes** - Check if previous modifications are still in place
+6. ✅ **Complete pending work** - Finish any in-progress tasks before starting new ones
+
+### 4. What NOT to Do
+
+❌ **DO NOT restart completed tasks** - Check summary first
+❌ **DO NOT ignore "FILES TO READ" section** - These files contain critical context
+❌ **DO NOT ask user to repeat information** - Summary should have all context
+❌ **DO NOT assume task is complete** - Check STATUS field
+❌ **DO NOT skip verification** - Always verify previous changes are in place
+
+### 5. Example Scenario
+
+**Before Context Limit:**
+- User asks to fix Residen Create Button issue
+- You identify the problem in line 123 of `pre-project.blade.php`
+- You make the fix
+- Context limit reached before testing
+
+**After Context Transfer (Summary):**
+```markdown
+## TASK 3: Add Create Pre-Project Button for Residen Users
+
+**STATUS**: in-progress
+
+**DETAILS**: 
+Fixed `$canCreate` logic in `resources/views/pages/pre-project.blade.php` line 123.
+Changed `$user->parliament_category_id` to `$user->parliament_id`.
+Updated budget check logic for Residen users.
+
+**NEXT STEPS**:
+- Test the implementation by logging in as Residen user
+- Verify Create button appears
+- Test that modal opens correctly
+
+**FILEPATHS**: 
+- `resources/views/pages/pre-project.blade.php` (lines 118-135 modified)
+```
+
+**Your Action:**
+1. Read the summary
+2. Read `resources/views/pages/pre-project.blade.php` to verify changes
+3. Continue with testing (next steps)
+4. Complete the task
+
+### 6. Critical Information to Preserve
+
+**ALWAYS preserve in summary:**
+- Database field names verified (e.g., `full_name` not `name`)
+- Specific line numbers where changes were made
+- Exact error messages encountered
+- User's specific requirements or constraints
+- Any workarounds or special considerations
+- Files that need to be read for context
+
+### 7. Verification After Context Transfer
+
+**First actions after receiving a summary:**
+
+1. ✅ Read the summary completely
+2. ✅ Identify current task and its status
+3. ✅ Read all files listed in "FILES TO READ" section
+4. ✅ Verify previous changes are still in place
+5. ✅ Check if there are any blockers mentioned
+6. ✅ Understand user's last request
+7. ✅ Continue work from where it was left off
+
+### Remember
+
+**"Context transfer is not a restart"** - When conversation is summarized, you are continuing the same work session. The summary is your memory of what happened before. Read it carefully and continue from where you left off.
+
+**"Summary is your memory"** - Treat the summary as if it's your own memory of the previous conversation. All the information you need to continue is in the summary.
+
+**"Files to Read are mandatory"** - The "FILES TO READ" section is not optional. These files contain critical context for continuing the work. Always read them before proceeding.

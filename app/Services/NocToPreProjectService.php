@@ -125,6 +125,7 @@ class NocToPreProjectService
         $preProjectData = [
             // Basic Information
             'name' => $originalProject->name,
+            'project_year' => $originalProject->project_year ?? now()->year, // CRITICAL: Set project year
             'residen_category_id' => $originalProject->residen_category_id,
             'agency_category_id' => $originalProject->agency_category_id,
             'parliament_id' => $originalProject->parliament_id,
@@ -219,6 +220,7 @@ class NocToPreProjectService
         // CRITICAL: kos_baru goes to actual_project_cost, NOT total_cost
         $preProjectData = [
             'name' => $nocProjectData['nama_projek_baru'] ?? 'New Project',
+            'project_year' => $nocProjectData['tahun_rtp'] ?? now()->year, // CRITICAL: Set project year from NOC
             'actual_project_cost' => $kosBaru,
             'original_project_cost' => $kosBaru, // Store original for validation
             'consultation_cost' => 0,
@@ -228,7 +230,7 @@ class NocToPreProjectService
             'total_cost' => $kosBaru, // Initially same as actual
             'status' => 'Waiting for Complete Form',
             'parliament_id' => $noc->parliament_id,
-            'dun_id' => $noc->dun_id,
+            'dun_basic_id' => $noc->dun_id, // FIXED: Use dun_basic_id not dun_id
             'implementing_agency_id' => $agencyId,
             'agency_category_id' => $agencyId,
         ];
