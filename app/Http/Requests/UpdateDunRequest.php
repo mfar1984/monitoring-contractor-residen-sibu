@@ -24,7 +24,6 @@ class UpdateDunRequest extends FormRequest
         $dunId = $this->route('id');
         
         return [
-            'parliament_id' => 'required|exists:parliaments,id',
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:50|unique:duns,code,' . $dunId,
             'description' => 'nullable|string',
@@ -79,9 +78,6 @@ class UpdateDunRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'parliament_id.required' => 'Parliament is required.',
-            'parliament_id.exists' => 'The selected Parliament does not exist.',
-            
             'name.required' => 'DUN name is required.',
             'name.string' => 'DUN name must be a text value.',
             'name.max' => 'DUN name must not exceed 255 characters.',

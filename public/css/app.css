@@ -476,7 +476,7 @@ html, body {
 .footer {
     background-color: #ffffff;
     color: #333333;
-    padding: 15px 20px;
+    padding: 8px 20px;
     border-top: 1px solid #e0e0e0;
 }
 
@@ -488,7 +488,7 @@ html, body {
 
 .footer-left p {
     margin: 0;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .footer-right {
@@ -498,18 +498,19 @@ html, body {
 }
 
 .footer-link {
-    color: #007bff;
+    color: #666666;
     text-decoration: none;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .footer-link:hover {
+    color: #333333;
     text-decoration: underline;
 }
 
 .footer-separator {
-    color: #6c757d;
-    font-size: 12px;
+    color: #999999;
+    font-size: 11px;
 }
 
 /* Login form */
@@ -620,3 +621,538 @@ html, body {
 .modal-body .material-symbols-outlined {
     vertical-align: middle;
 }
+
+/* Header Icon Dropdowns */
+.topbar-icon-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.topbar-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.topbar-icon:hover {
+    background-color: #f5f5f5;
+}
+
+.icon-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background-color: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 320px;
+    max-height: 480px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+}
+
+.icon-dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-header {
+    padding: 16px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dropdown-header h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
+
+.badge-count {
+    background-color: #007bff;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Notification Dropdown */
+.notification-list {
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f5f5f5;
+    text-decoration: none;
+    color: #333;
+    transition: background-color 0.2s;
+}
+
+.notification-item:hover {
+    background-color: #f8f9fa;
+}
+
+.notification-item.unread {
+    background-color: #f0f7ff;
+}
+
+.notification-item .notif-icon {
+    font-size: 24px;
+    color: #007bff;
+    flex-shrink: 0;
+}
+
+.notif-content {
+    flex: 1;
+}
+
+.notif-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 4px 0;
+}
+
+.notif-text {
+    font-size: 11px;
+    color: #666;
+    margin: 0 0 4px 0;
+    line-height: 1.4;
+}
+
+.notif-time {
+    font-size: 10px;
+    color: #999;
+}
+
+.dropdown-footer {
+    padding: 12px 16px;
+    border-top: 1px solid #e0e0e0;
+    text-align: center;
+}
+
+.view-all-link {
+    color: #007bff;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.view-all-link:hover {
+    text-decoration: underline;
+}
+
+/* Shortcut Dropdown */
+.shortcut-menu {
+    min-width: 320px;
+    max-width: 320px;
+}
+
+.shortcut-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 12px;
+}
+
+.shortcut-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 8px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #333;
+    transition: all 0.2s;
+    border: none;
+    min-height: 70px;
+}
+
+.shortcut-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.shortcut-item .material-symbols-outlined {
+    font-size: 28px;
+}
+
+.shortcut-item span:last-child {
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+    color: #333;
+}
+
+/* Help Dropdown */
+.help-menu {
+    min-width: 200px;
+}
+
+.help-list {
+    padding: 8px 0;
+}
+
+.help-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    text-decoration: none;
+    color: #333;
+    transition: background-color 0.2s;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.help-item:hover {
+    background-color: #f8f9fa;
+}
+
+.help-item .material-symbols-outlined {
+    font-size: 20px;
+    color: #007bff;
+    flex-shrink: 0;
+}
+
+/* Weather Widget - Simple text style without background */
+.weather-widget {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #333;
+    position: relative;
+    cursor: pointer;
+}
+
+.weather-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.weather-temp {
+    font-weight: 600;
+    color: #333;
+}
+
+.weather-separator {
+    color: #ccc;
+    margin: 0 2px;
+}
+
+.weather-desc {
+    color: #666;
+    text-transform: capitalize;
+}
+
+/* Weather Tooltip */
+.weather-tooltip {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    min-width: 320px;
+    z-index: 1000;
+    display: none;
+    overflow: hidden;
+}
+
+.weather-tooltip.show {
+    display: block;
+}
+
+.weather-tooltip-header {
+    background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+    padding: 20px;
+    color: white;
+}
+
+.weather-tooltip-header h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    margin: 0 0 4px 0;
+}
+
+.weather-tooltip-header p {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+}
+
+.weather-tooltip-current {
+    background: #f8f9fa;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.tooltip-temp-large {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tooltip-temp-large .tooltip-icon {
+    font-size: 48px;
+    line-height: 1;
+}
+
+.tooltip-temp-large .tooltip-temp {
+    font-size: 48px;
+    font-weight: 700;
+    color: #333;
+}
+
+.tooltip-condition {
+    text-align: right;
+}
+
+.tooltip-condition p {
+    margin: 0;
+    font-size: 13px;
+}
+
+.tooltip-condition p:first-child {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.tooltip-condition p:last-child {
+    color: #666;
+    font-size: 12px;
+}
+
+.weather-tooltip-section {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.weather-tooltip-section:last-of-type {
+    border-bottom: none;
+}
+
+.weather-tooltip-section h5 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 12px 0;
+}
+
+.weather-tooltip-details {
+    padding: 16px 20px;
+}
+
+.tooltip-detail-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.tooltip-detail-row:last-child {
+    margin-bottom: 0;
+}
+
+.tooltip-detail {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.detail-label {
+    font-size: 11px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.detail-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.weather-tooltip-forecast {
+    padding: 16px 20px;
+    background: #f8f9fa;
+}
+
+.forecast-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.forecast-header h5 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
+
+.forecast-nav {
+    display: flex;
+    gap: 8px;
+}
+
+.forecast-nav-btn {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    color: #666;
+    transition: all 0.2s;
+}
+
+.forecast-nav-btn:hover {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.forecast-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.forecast-nav-btn:disabled:hover {
+    background: white;
+    border-color: #e0e0e0;
+    color: #666;
+}
+
+.forecast-scroll-container {
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+    max-width: 280px; /* Wider to fit 3 items comfortably */
+}
+
+.forecast-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+.forecast-scroll::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+.forecast-item {
+    flex: 0 0 auto;
+    width: 85px; /* Wider items for better fit */
+    text-align: center;
+    background: white;
+    border-radius: 8px;
+    padding: 10px 6px;
+    border: 1px solid #e0e0e0;
+}
+
+.forecast-item .forecast-time {
+    font-size: 10px;
+    color: #666;
+    margin-bottom: 2px;
+    font-weight: 600;
+}
+
+.forecast-item .forecast-day {
+    font-size: 9px;
+    color: #999;
+    margin-bottom: 6px;
+}
+
+.forecast-item .forecast-icon {
+    font-size: 24px;
+    margin-bottom: 6px;
+}
+
+.forecast-item .forecast-temp {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.forecast-item .forecast-desc {
+    font-size: 8px;
+    color: #666;
+    margin-bottom: 6px;
+    line-height: 1.2;
+}
+
+.forecast-item .forecast-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.forecast-item .forecast-detail {
+    font-size: 8px;
+    color: #999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.weather-tooltip-footer {
+    padding: 12px 20px;
+    background: #f8f9fa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.weather-tooltip-footer p {
+    margin: 0;
+    font-size: 10px;
+    color: #999;
+}
+
+.weather-tooltip-footer .footer-time {
+    font-weight: 600;
+    color: #666;
+}
+
+/* Breadcrumb Container */
+.breadcrumb-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 20px;
+    width: 100%;
+}
+

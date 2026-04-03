@@ -132,11 +132,10 @@
                         <input type="text" id="username" name="username" required>
                     </div>
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 0;">
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="password">Password <span style="color: #dc3545;" id="passwordRequired">*</span></label>
                             <input type="password" id="password" name="password">
-                            <small style="color: #666666; font-size: 11px; display: block; margin-top: 4px;" id="passwordHint">Leave blank to keep current</small>
                         </div>
                         
                         <div class="form-group" style="margin-bottom: 0;">
@@ -187,8 +186,8 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const createBtn = document.querySelector('.btn-primary');
-    if (createBtn && createBtn.textContent.includes('Create User')) {
+    const createBtn = document.getElementById('create-button');
+    if (createBtn) {
         createBtn.onclick = function(e) {
             e.preventDefault();
             openCreateModal();
@@ -213,7 +212,6 @@ function openCreateModal() {
     document.getElementById('password_confirmation').required = true;
     document.getElementById('passwordRequired').style.display = 'inline';
     document.getElementById('confirmRequired').style.display = 'inline';
-    document.getElementById('passwordHint').style.display = 'none';
     document.getElementById('userModal').classList.add('show');
 }
 
@@ -234,7 +232,6 @@ function editUser(user) {
     document.getElementById('password_confirmation').required = false;
     document.getElementById('passwordRequired').style.display = 'none';
     document.getElementById('confirmRequired').style.display = 'none';
-    document.getElementById('passwordHint').style.display = 'block';
     document.getElementById('userModal').classList.add('show');
 }
 

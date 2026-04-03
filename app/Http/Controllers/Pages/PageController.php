@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use App\Http\Requests\StorePreProjectRequest;
 use App\Http\Requests\UpdatePreProjectRequest;
+use Illuminate\Support\Facades\DB;
 
 class PageController extends Controller
 {
@@ -561,6 +562,28 @@ class PageController extends Controller
         return redirect()->route('pages.general.localization')->with('success', 'Language and all its translations deleted successfully');
     }
 
+    // General Settings - Legal
+    public function generalLegal(): View
+    {
+        $settings = \App\Models\IntegrationSetting::getSettings('legal');
+        return view('pages.general.legal', compact('settings'));
+    }
+
+    public function generalLegalStore(Request $request)
+    {
+        $request->validate([
+            'disclaimer' => 'nullable|string',
+            'privacy' => 'nullable|string',
+            'terms' => 'nullable|string',
+        ]);
+
+        \App\Models\IntegrationSetting::setSetting('legal', 'disclaimer', $request->disclaimer);
+        \App\Models\IntegrationSetting::setSetting('legal', 'privacy', $request->privacy);
+        \App\Models\IntegrationSetting::setSetting('legal', 'terms', $request->terms);
+
+        return redirect()->route('pages.general.legal')->with('success', 'Legal information saved successfully');
+    }
+
     public function masterData(): RedirectResponse
     {
         return redirect()->route('pages.master-data.residen');
@@ -704,8 +727,21 @@ class PageController extends Controller
 
     public function masterDataContractor(): View
     {
-        $categories = \App\Models\ContractorCategory::orderBy('created_at', 'desc')->get();
-        return view('pages.master-data.contractor', compact('categories'));
+        $contractors = \App\Models\ContractorCategory::orderBy('created_at', 'desc')->get();
+        $upkjClasses = \App\Models\ContractorCategory::getUpkjClasses();
+        
+        return view('pages.master-data.contractor', compact('contractors', 'upkjClasses'));
+    }
+
+    public function masterDataContractorCreate(): View
+    {
+        $upkjClasses = \App\Models\ContractorCategory::getUpkjClasses();
+        
+        // Get divisions and districts from database
+        $divisions = \App\Models\Division::where('status', 'Active')->orderBy('name')->get();
+        $districts = \App\Models\District::where('status', 'Active')->orderBy('name')->get();
+        
+        return view('pages.master-data.contractor-create', compact('upkjClasses', 'divisions', 'districts'));
     }
 
     public function masterDataContractorStore(Request $request)
@@ -713,45 +749,329 @@ class PageController extends Controller
         $request->validate([
             'company_name' => 'required|string|max:255',
             'code' => 'required|string|max:255|unique:contractor_categories,code',
-            'registration_number' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'status' => 'required|in:Active,Inactive',
+            'registration_number' => 'required|string|max:255',
+            'company_type' => 'required|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'telephone_no' => 'nullable|string|max:255',
+            'mobile_no' => 'nullable|string|max:255',
+            'upkj_class' => 'nullable|string|max:255',
+            'upkj_head' => 'nullable|string|max:255',
+            'upkj_subhead' => 'nullable|string',
+            'shareholders' => 'nullable|array',
+            'shareholders.*.name' => 'required_with:shareholders|string|max:255',
+            'shareholders.*.registration_no' => 'nullable|string|max:255',
+            'shareholders.*.shares' => 'nullable|numeric|min:0|max:100',
+            'directors' => 'nullable|array',
+            'directors.*.name' => 'required_with:directors|string|max:255',
+            'directors.*.ic_number' => 'nullable|string|max:255',
+            'directors.*.shares' => 'nullable|numeric|min:0|max:100',
+            'manpower_sole_proprietor' => 'nullable|integer|min:0',
+            'manpower_management' => 'nullable|integer|min:0',
+            'manpower_professional' => 'nullable|integer|min:0',
+            'manpower_sub_professional' => 'nullable|integer|min:0',
+            'manpower_competent_worker' => 'nullable|integer|min:0',
+            'status' => 'required|in:Active,Inactive,Pending,Rejected,Suspended',
+            
+            // UPKJ records validation
+            'upkj' => 'nullable|array',
+            'upkj.*.category' => 'required_with:upkj|string|in:Works,Supplies & Services,Electrical,Mechanical',
+            'upkj.*.registration_status' => 'required_with:upkj|string|in:Valid,Expired,Pending',
+            'upkj.*.validity_period' => 'nullable|string|max:255',
+            'upkj.*.bumiputera_status' => 'nullable|string|in:Yes,No',
+            'upkj.*.bumiputera_validity' => 'nullable|string|max:255',
+            'upkj.*.certificate_no' => 'nullable|string|max:255',
+            'upkj.*.classifications' => 'required_with:upkj|array|min:1',
+            'upkj.*.classifications.*.class' => 'required|string',
+            'upkj.*.classifications.*.head_code' => 'required|string',
+            'upkj.*.classifications.*.subhead_code' => 'nullable|string',
         ]);
 
-        \App\Models\ContractorCategory::create($request->all());
+        $data = $request->except(['shareholders', 'directors', 'upkj']);
+        
+        // Handle shareholders data (combine both tables into one JSON field)
+        $shareholdersData = [];
+        if ($request->has('shareholders')) {
+            foreach ($request->shareholders as $shareholder) {
+                $shareholdersData[] = [
+                    'type' => 'company',
+                    'name' => $shareholder['name'],
+                    'registration_no' => $shareholder['registration_no'] ?? null,
+                    'shares' => $shareholder['shares'] ?? 0,
+                ];
+            }
+        }
+        if ($request->has('directors')) {
+            foreach ($request->directors as $director) {
+                $shareholdersData[] = [
+                    'type' => 'individual',
+                    'name' => $director['name'],
+                    'ic_number' => $director['ic_number'] ?? null,
+                    'shares' => $director['shares'] ?? 0,
+                ];
+            }
+        }
+        $data['shareholders_data'] = $shareholdersData;
+        
+        // Calculate total manpower
+        $data['manpower_total'] = ($request->manpower_sole_proprietor ?? 0) +
+                                   ($request->manpower_management ?? 0) +
+                                   ($request->manpower_professional ?? 0) +
+                                   ($request->manpower_sub_professional ?? 0) +
+                                   ($request->manpower_competent_worker ?? 0);
 
-        return redirect()->route('pages.master-data.contractor')->with('success', 'Category created successfully');
+        DB::beginTransaction();
+        try {
+            $contractor = \App\Models\ContractorCategory::create($data);
+
+            // Create UPKJ records if provided
+            if ($request->has('upkj') && is_array($request->upkj)) {
+                foreach ($request->upkj as $upkjData) {
+                    // Build classifications array
+                    $classifications = [];
+                    if (isset($upkjData['classifications']) && is_array($upkjData['classifications'])) {
+                        foreach ($upkjData['classifications'] as $classification) {
+                            $classifications[] = [
+                                'id' => $classification['id'] ?? null,
+                                'class' => $classification['class'] ?? null,
+                                'class_description' => $classification['class_description'] ?? null,
+                                'head_code' => $classification['head_code'] ?? null,
+                                'head_name' => $classification['head_name'] ?? null,
+                                'subhead_code' => $classification['subhead_code'] ?? null,
+                                'subhead_letter' => $classification['subhead_letter'] ?? null,
+                                'subhead_roman' => $classification['subhead_roman'] ?? null,
+                                'description' => $classification['description'] ?? null,
+                            ];
+                        }
+                    }
+
+                    \App\Models\ContractorUpkjRecord::create([
+                        'contractor_category_id' => $contractor->id,
+                        'category' => $upkjData['category'],
+                        'registration_status' => $upkjData['registration_status'],
+                        'validity_period' => $upkjData['validity_period'] ?? null,
+                        'bumiputera_status' => $upkjData['bumiputera_status'] ?? null,
+                        'bumiputera_validity' => $upkjData['bumiputera_validity'] ?? null,
+                        'certificate_no' => $upkjData['certificate_no'] ?? null,
+                        'classifications' => $classifications,
+                    ]);
+                }
+            }
+
+            DB::commit();
+            return redirect()->route('pages.master-data.contractor')->with('success', 'Company created successfully');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->withInput()->with('error', 'Failed to create company: ' . $e->getMessage());
+        }
     }
 
     public function masterDataContractorUpdate(Request $request, $id)
     {
-        $category = \App\Models\ContractorCategory::findOrFail($id);
+        $contractor = \App\Models\ContractorCategory::findOrFail($id);
 
         $request->validate([
             'company_name' => 'required|string|max:255',
             'code' => 'required|string|max:255|unique:contractor_categories,code,' . $id,
-            'registration_number' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'status' => 'required|in:Active,Inactive',
+            'registration_number' => 'required|string|max:255',
+            'company_type' => 'required|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'telephone_no' => 'nullable|string|max:255',
+            'mobile_no' => 'nullable|string|max:255',
+            'upkj_class' => 'nullable|string|max:255',
+            'upkj_head' => 'nullable|string|max:255',
+            'upkj_subhead' => 'nullable|string',
+            'shareholders' => 'nullable|array',
+            'shareholders.*.name' => 'required_with:shareholders|string|max:255',
+            'shareholders.*.registration_no' => 'nullable|string|max:255',
+            'shareholders.*.shares' => 'nullable|numeric|min:0|max:100',
+            'directors' => 'nullable|array',
+            'directors.*.name' => 'required_with:directors|string|max:255',
+            'directors.*.ic_number' => 'nullable|string|max:255',
+            'directors.*.shares' => 'nullable|numeric|min:0|max:100',
+            'manpower_sole_proprietor' => 'nullable|integer|min:0',
+            'manpower_management' => 'nullable|integer|min:0',
+            'manpower_professional' => 'nullable|integer|min:0',
+            'manpower_sub_professional' => 'nullable|integer|min:0',
+            'manpower_competent_worker' => 'nullable|integer|min:0',
+            'status' => 'required|in:Active,Inactive,Pending,Rejected,Suspended',
+            
+            // UPKJ records validation
+            'upkj' => 'nullable|array',
+            'upkj.*.category' => 'required_with:upkj|string|in:Works,Supplies & Services,Electrical,Mechanical',
+            'upkj.*.registration_status' => 'required_with:upkj|string|in:Valid,Expired,Pending',
+            'upkj.*.validity_period' => 'nullable|string|max:100',
+            'upkj.*.bumiputera_status' => 'nullable|string|in:Yes,No',
+            'upkj.*.bumiputera_validity' => 'nullable|string|max:100',
+            'upkj.*.certificate_no' => 'nullable|string|max:100',
+            'upkj.*.classifications' => 'required_with:upkj|array|min:1',
+        ], [
+            'upkj.*.category.required_with' => 'Category is required for each UPKJ record',
+            'upkj.*.registration_status.required_with' => 'Registration status is required for each UPKJ record',
+            'upkj.*.classifications.required_with' => 'Each UPKJ record must have at least one classification',
+            'upkj.*.classifications.min' => 'Each UPKJ record must have at least one classification',
         ]);
 
-        $category->update($request->all());
+        \DB::beginTransaction();
+        try {
+            $data = $request->except(['shareholders', 'directors', 'upkj']);
+            
+            // Handle shareholders data (combine both tables into one JSON field)
+            $shareholdersData = [];
+            if ($request->has('shareholders')) {
+                foreach ($request->shareholders as $shareholder) {
+                    $shareholdersData[] = [
+                        'type' => 'company',
+                        'name' => $shareholder['name'],
+                        'registration_no' => $shareholder['registration_no'] ?? null,
+                        'shares' => $shareholder['shares'] ?? 0,
+                    ];
+                }
+            }
+            if ($request->has('directors')) {
+                foreach ($request->directors as $director) {
+                    $shareholdersData[] = [
+                        'type' => 'individual',
+                        'name' => $director['name'],
+                        'ic_number' => $director['ic_number'] ?? null,
+                        'shares' => $director['shares'] ?? 0,
+                    ];
+                }
+            }
+            $data['shareholders_data'] = !empty($shareholdersData) ? $shareholdersData : null;
+            
+            // Calculate total manpower
+            $data['manpower_total'] = ($request->manpower_sole_proprietor ?? 0) +
+                                       ($request->manpower_management ?? 0) +
+                                       ($request->manpower_professional ?? 0) +
+                                       ($request->manpower_sub_professional ?? 0) +
+                                       ($request->manpower_competent_worker ?? 0);
 
-        return redirect()->route('pages.master-data.contractor')->with('success', 'Category updated successfully');
+            $contractor->update($data);
+
+            // Delete existing UPKJ records
+            $contractor->upkjRecords()->delete();
+
+            // Create new UPKJ records
+            if ($request->filled('upkj')) {
+                foreach ($request->upkj as $upkjData) {
+                    $contractor->upkjRecords()->create([
+                        'category' => $upkjData['category'],
+                        'registration_status' => $upkjData['registration_status'],
+                        'validity_period' => $upkjData['validity_period'] ?? null,
+                        'bumiputera_status' => $upkjData['bumiputera_status'] ?? null,
+                        'bumiputera_validity' => $upkjData['bumiputera_validity'] ?? null,
+                        'certificate_no' => $upkjData['certificate_no'] ?? null,
+                        'classifications' => $upkjData['classifications'] ?? [],
+                    ]);
+                }
+            }
+
+            \DB::commit();
+
+            return redirect()->route('pages.master-data.contractor')->with('success', 'Company updated successfully');
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to update company: ' . $e->getMessage());
+        }
+    }
+
+    public function masterDataContractorEdit($id): View
+    {
+        $contractor = \App\Models\ContractorCategory::with('upkjRecords')->findOrFail($id);
+        $upkjClasses = \App\Models\ContractorCategory::getUpkjClasses();
+        
+        // Get divisions and districts from database
+        $divisions = \App\Models\Division::where('status', 'Active')->orderBy('name')->get();
+        $districts = \App\Models\District::where('status', 'Active')->orderBy('name')->get();
+        
+        // Separate shareholders data into companies and individuals
+        $shareholders = [];
+        $directors = [];
+        foreach ($contractor->getShareholders() as $shareholder) {
+            if (($shareholder['type'] ?? 'individual') === 'company') {
+                $shareholders[] = $shareholder;
+            } else {
+                $directors[] = $shareholder;
+            }
+        }
+        
+        return view('pages.master-data.contractor-edit', compact('contractor', 'upkjClasses', 'divisions', 'districts', 'shareholders', 'directors'));
     }
 
     public function masterDataContractorDelete($id)
     {
-        $category = \App\Models\ContractorCategory::findOrFail($id);
-        $category->delete();
+        $contractor = \App\Models\ContractorCategory::findOrFail($id);
+        
+        // Check if contractor has users
+        if ($contractor->users()->count() > 0) {
+            return redirect()->route('pages.master-data.contractor')
+                ->with('error', 'Cannot delete company with associated users');
+        }
+        
+        $contractor->delete();
 
-        return redirect()->route('pages.master-data.contractor')->with('success', 'Category deleted successfully');
+        return redirect()->route('pages.master-data.contractor')->with('success', 'Company deleted successfully');
     }
 
     public function masterDataStatus(): View
     {
         $statuses = \App\Models\StatusMaster::orderBy('created_at', 'desc')->get();
         return view('pages.master-data.status', compact('statuses'));
+    }
+
+    public function masterDataStatusStore(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:255|unique:status_master,code',
+            'color' => 'required|string|max:7',
+            'description' => 'nullable|string',
+            'status' => 'required|in:Active,Inactive',
+        ]);
+
+        \App\Models\StatusMaster::create([
+            'name' => $request->name,
+            'code' => $request->code,
+            'color' => $request->color,
+            'description' => $request->description,
+            'status' => $request->status,
+        ]);
+
+        return redirect()->route('pages.master-data.status')->with('success', 'Status created successfully');
+    }
+
+    public function masterDataStatusUpdate(Request $request, $id)
+    {
+        $status = \App\Models\StatusMaster::findOrFail($id);
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:255|unique:status_master,code,' . $id,
+            'color' => 'required|string|max:7',
+            'description' => 'nullable|string',
+            'status' => 'required|in:Active,Inactive',
+        ]);
+
+        $status->update([
+            'name' => $request->name,
+            'code' => $request->code,
+            'color' => $request->color,
+            'description' => $request->description,
+            'status' => $request->status,
+        ]);
+
+        return redirect()->route('pages.master-data.status')->with('success', 'Status updated successfully');
+    }
+
+    public function masterDataStatusDelete($id)
+    {
+        $status = \App\Models\StatusMaster::findOrFail($id);
+        $status->delete();
+
+        return redirect()->route('pages.master-data.status')->with('success', 'Status deleted successfully');
     }
 
     public function masterDataProjectCategory(): View
@@ -919,6 +1239,7 @@ class PageController extends Controller
 
     public function masterDataParliamentsUpdate(\App\Http\Requests\UpdateParliamentRequest $request, $id)
         {
+            $user = auth()->user();
             $parliament = \App\Models\Parliament::findOrFail($id);
 
             // Update the Parliament record
@@ -929,16 +1250,21 @@ class PageController extends Controller
                 'status' => $request->status,
             ]);
 
-            // Delete existing budget entries
-            \App\Models\ParliamentBudget::where('parliament_id', $parliament->id)->delete();
+            // CRITICAL: Only Residen users can update budgets
+            if ($user->residen_category_id) {
+                // Delete existing budget entries
+                \App\Models\ParliamentBudget::where('parliament_id', $parliament->id)->delete();
 
-            // Create new budget entries from the budgets array
-            foreach ($request->budgets as $budgetEntry) {
-                \App\Models\ParliamentBudget::create([
-                    'parliament_id' => $parliament->id,
-                    'year' => $budgetEntry['year'],
-                    'budget' => $budgetEntry['budget'],
-                ]);
+                // Create new budget entries from the budgets array
+                if ($request->has('budgets') && is_array($request->budgets)) {
+                    foreach ($request->budgets as $budgetEntry) {
+                        \App\Models\ParliamentBudget::create([
+                            'parliament_id' => $parliament->id,
+                            'year' => $budgetEntry['year'],
+                            'budget' => $budgetEntry['budget'],
+                        ]);
+                    }
+                }
             }
 
             return redirect()->route('pages.master-data.parliaments')->with('success', 'Parliament updated successfully');
@@ -984,27 +1310,32 @@ class PageController extends Controller
 
     public function masterDataDunsUpdate(\App\Http\Requests\UpdateDunRequest $request, $id)
     {
+        $user = auth()->user();
         $dun = \App\Models\Dun::findOrFail($id);
 
         // Update the DUN record
         $dun->update([
-            'parliament_id' => $request->parliament_id,
             'name' => $request->name,
             'code' => $request->code,
             'description' => $request->description,
             'status' => $request->status,
         ]);
 
-        // Delete existing budget entries
-        \App\Models\DunBudget::where('dun_id', $dun->id)->delete();
+        // CRITICAL: Only Residen users can update budgets
+        if ($user->residen_category_id) {
+            // Delete existing budget entries
+            \App\Models\DunBudget::where('dun_id', $dun->id)->delete();
 
-        // Create new budget entries from the budgets array
-        foreach ($request->budgets as $budgetEntry) {
-            \App\Models\DunBudget::create([
-                'dun_id' => $dun->id,
-                'year' => $budgetEntry['year'],
-                'budget' => $budgetEntry['budget'],
-            ]);
+            // Create new budget entries from the budgets array
+            if ($request->has('budgets') && is_array($request->budgets)) {
+                foreach ($request->budgets as $budgetEntry) {
+                    \App\Models\DunBudget::create([
+                        'dun_id' => $dun->id,
+                        'year' => $budgetEntry['year'],
+                        'budget' => $budgetEntry['budget'],
+                    ]);
+                }
+            }
         }
 
         return redirect()->route('pages.master-data.duns')->with('success', 'DUN updated successfully');
@@ -1704,6 +2035,99 @@ class PageController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to test weather API: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getWeather()
+    {
+        try {
+            // Get weather settings from integration_settings table
+            $apiKey = \App\Models\IntegrationSetting::getSetting('weather', 'api_key');
+            $baseUrl = \App\Models\IntegrationSetting::getSetting('weather', 'base_url', 'https://api.openweathermap.org/data/2.5');
+            $location = \App\Models\IntegrationSetting::getSetting('weather', 'location', 'Kuching, MY');
+            $latitude = \App\Models\IntegrationSetting::getSetting('weather', 'latitude');
+            $longitude = \App\Models\IntegrationSetting::getSetting('weather', 'longitude');
+            $units = \App\Models\IntegrationSetting::getSetting('weather', 'units', 'metric');
+            
+            // Check if API key is configured
+            if (empty($apiKey)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Weather API key not configured'
+                ], 400);
+            }
+            
+            // Build current weather API URL
+            $currentUrl = $baseUrl . '/weather?';
+            
+            // Use latitude/longitude if available, otherwise use location name
+            if (!empty($latitude) && !empty($longitude)) {
+                $currentUrl .= 'lat=' . $latitude . '&lon=' . $longitude;
+                $forecastUrl = $baseUrl . '/forecast?lat=' . $latitude . '&lon=' . $longitude;
+            } else {
+                $currentUrl .= 'q=' . urlencode($location);
+                $forecastUrl = $baseUrl . '/forecast?q=' . urlencode($location);
+            }
+            
+            $currentUrl .= '&appid=' . $apiKey . '&units=' . $units;
+            $forecastUrl .= '&appid=' . $apiKey . '&units=' . $units;
+            
+            // Make API requests with timeout
+            $currentResponse = \Illuminate\Support\Facades\Http::timeout(10)->get($currentUrl);
+            $forecastResponse = \Illuminate\Support\Facades\Http::timeout(10)->get($forecastUrl);
+            
+            if ($currentResponse->successful()) {
+                $currentData = $currentResponse->json();
+                $forecastData = [];
+                
+                // Process forecast data if available
+                if ($forecastResponse->successful()) {
+                    $forecast = $forecastResponse->json();
+                    
+                    // Get forecast for next 2 days (16 entries = 48 hours / 3-hour intervals)
+                    if (isset($forecast['list'])) {
+                        $forecastList = array_slice($forecast['list'], 0, 16);
+                        
+                        foreach ($forecastList as $item) {
+                            $forecastData[] = [
+                                'time' => $item['dt'],
+                                'temp' => round($item['main']['temp'] ?? 0, 1),
+                                'weather' => $item['weather'][0]['main'] ?? 'Clear',
+                                'description' => ucfirst($item['weather'][0]['description'] ?? 'clear sky'),
+                                'icon' => $item['weather'][0]['icon'] ?? '01d',
+                                'humidity' => $item['main']['humidity'] ?? 0,
+                                'wind_speed' => round(($item['wind']['speed'] ?? 0) * 3.6, 1),
+                            ];
+                        }
+                    }
+                }
+                
+                return response()->json([
+                    'success' => true,
+                    'temperature' => round($currentData['main']['temp'] ?? 0, 1),
+                    'weather' => $currentData['weather'][0]['main'] ?? 'Clear',
+                    'description' => ucfirst($currentData['weather'][0]['description'] ?? 'clear sky'),
+                    'feels_like' => round($currentData['main']['feels_like'] ?? 0, 1),
+                    'humidity' => $currentData['main']['humidity'] ?? 0,
+                    'wind_speed' => round(($currentData['wind']['speed'] ?? 0) * 3.6, 1), // Convert m/s to km/h
+                    'pressure' => $currentData['main']['pressure'] ?? 0,
+                    'visibility' => round(($currentData['visibility'] ?? 0) / 1000, 1), // Convert meters to km
+                    'location' => $currentData['name'] ?? $location,
+                    'country' => $currentData['sys']['country'] ?? '',
+                    'forecast' => $forecastData,
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to fetch weather data'
+                ], 400);
+            }
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Weather service unavailable'
             ], 500);
         }
     }
@@ -2762,8 +3186,27 @@ class PageController extends Controller
     {
         $user = auth()->user();
         
-        $transfer = \App\Models\ContractorAnalysisTransfer::with(['creator', 'agency', 'projects'])
-            ->findOrFail($id);
+        $transfer = \App\Models\ContractorAnalysisTransfer::with([
+            'creator', 
+            'agency', 
+            'projects' => function($query) {
+                $query->with([
+                    'residenCategory',
+                    'agencyCategory',
+                    'parliament',
+                    'dunBasic',
+                    'projectCategory',
+                    'division',
+                    'district',
+                    'parliamentLocation',
+                    'dun',
+                    'landTitleStatus',
+                    'implementingAgency',
+                    'implementationMethod',
+                    'projectOwnership'
+                ]);
+            }
+        ])->findOrFail($id);
         
         // Verify access
         if (!$user->residen_category_id && $user->agency_category_id !== $transfer->agency_category_id) {
@@ -2947,5 +3390,136 @@ class PageController extends Controller
         $note->delete();
 
         return redirect()->route('pages.master-data.noc-note')->with('success', 'NOC Note deleted successfully');
+    }
+
+    // Master Data - UPKJ Classifications
+    public function masterDataUpkj(): View
+    {
+        $upkjClassifications = \App\Models\UpkjClassification::orderBy('category')
+            ->orderBy('class')
+            ->orderBy('head_code')
+            ->orderBy('subhead_code')
+            ->get();
+
+        // Get unique values for dropdowns
+        $classes = \App\Models\UpkjClassification::getClasses();
+        $headCodes = \App\Models\UpkjClassification::getHeadCodes();
+        $subheadCodes = \App\Models\UpkjClassification::getSubheadCodes();
+        $subheadLetters = \App\Models\UpkjClassification::getSubheadLetters();
+        $subheadRomans = \App\Models\UpkjClassification::getSubheadRomans();
+
+        return view('pages.master-data.upkj', compact(
+            'upkjClassifications',
+            'classes',
+            'headCodes',
+            'subheadCodes',
+            'subheadLetters',
+            'subheadRomans'
+        ));
+    }
+
+    public function masterDataUpkjStore(Request $request)
+    {
+        $request->validate([
+            'category' => 'required|string|max:255',
+            'class' => 'nullable|string|max:255',
+            'class_description' => 'nullable|string|max:255',
+            'head_code' => 'nullable|string|max:255',
+            'head_name' => 'nullable|string|max:255',
+            'subhead_code' => 'nullable|string|max:255',
+            'subhead_letter' => 'nullable|string|max:255',
+            'subhead_roman' => 'nullable|string|max:255',
+            'description' => 'required|string',
+            'status' => 'required|in:active,inactive',
+        ]);
+
+        \App\Models\UpkjClassification::create($request->all());
+
+        return redirect()->route('pages.master-data.upkj')->with('success', 'UPKJ Classification created successfully');
+    }
+
+    public function masterDataUpkjUpdate(Request $request, $id)
+    {
+        $upkj = \App\Models\UpkjClassification::findOrFail($id);
+
+        $request->validate([
+            'category' => 'required|string|max:255',
+            'class' => 'nullable|string|max:255',
+            'class_description' => 'nullable|string|max:255',
+            'head_code' => 'nullable|string|max:255',
+            'head_name' => 'nullable|string|max:255',
+            'subhead_code' => 'nullable|string|max:255',
+            'subhead_letter' => 'nullable|string|max:255',
+            'subhead_roman' => 'nullable|string|max:255',
+            'description' => 'required|string',
+            'status' => 'required|in:active,inactive',
+        ]);
+
+        $upkj->update($request->all());
+
+        return redirect()->route('pages.master-data.upkj')->with('success', 'UPKJ Classification updated successfully');
+    }
+
+    public function masterDataUpkjDelete($id)
+    {
+        $upkj = \App\Models\UpkjClassification::findOrFail($id);
+        $upkj->delete();
+
+        return redirect()->route('pages.master-data.upkj')->with('success', 'UPKJ Classification deleted successfully');
+    }
+
+    /**
+     * Get all UPKJ classes (API endpoint)
+     * 
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getUpkjClasses()
+    {
+        $classes = DB::table('upkj_classifications')
+            ->select('class', 'class_description')
+            ->distinct()
+            ->orderBy('class')
+            ->get();
+        
+        return response()->json($classes);
+    }
+    
+    /**
+     * Get UPKJ heads for a specific class (API endpoint)
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getUpkjHeads(Request $request)
+    {
+        $class = $request->input('class');
+        
+        if (!$class) {
+            return response()->json([]);
+        }
+        
+        $heads = \App\Models\ContractorCategory::getUpkjHeads($class);
+        
+        return response()->json($heads);
+    }
+    
+    /**
+     * Get UPKJ subheads for a specific class and head (API endpoint)
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getUpkjSubheads(Request $request)
+    {
+        $class = $request->input('class');
+        $head = $request->input('head');
+        
+        if (!$class || !$head) {
+            return response()->json([]);
+        }
+        
+        $subheads = \App\Models\ContractorCategory::getUpkjSubheads($class, $head);
+        
+        return response()->json($subheads);
     }
 }

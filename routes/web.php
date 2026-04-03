@@ -42,6 +42,8 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::post('/pages/general/translation', [PageController::class, 'generalTranslationStore'])->name('pages.general.translation.store');
     Route::get('/pages/general/translation/export', [PageController::class, 'generalTranslationExport'])->name('pages.general.translation.export');
     Route::post('/pages/general/translation/import', [PageController::class, 'generalTranslationImport'])->name('pages.general.translation.import');
+    Route::get('/pages/general/legal', [PageController::class, 'generalLegal'])->name('pages.general.legal');
+    Route::post('/pages/general/legal', [PageController::class, 'generalLegalStore'])->name('pages.general.legal.store');
     Route::get('/pages/master-data', [PageController::class, 'masterData'])->name('pages.master-data');
     Route::get('/pages/master-data/residen', [PageController::class, 'masterDataResiden'])->name('pages.master-data.residen');
     Route::post('/pages/master-data/residen', [PageController::class, 'masterDataResidenStore'])->name('pages.master-data.residen.store');
@@ -56,10 +58,15 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::put('/pages/master-data/parliament/{id}', [PageController::class, 'masterDataParliamentUpdate'])->name('pages.master-data.parliament.update');
     Route::delete('/pages/master-data/parliament/{id}', [PageController::class, 'masterDataParliamentDelete'])->name('pages.master-data.parliament.delete');
     Route::get('/pages/master-data/contractor', [PageController::class, 'masterDataContractor'])->name('pages.master-data.contractor');
+    Route::get('/pages/master-data/contractor/create', [PageController::class, 'masterDataContractorCreate'])->name('pages.master-data.contractor.create');
     Route::post('/pages/master-data/contractor', [PageController::class, 'masterDataContractorStore'])->name('pages.master-data.contractor.store');
+    Route::get('/pages/master-data/contractor/{id}/edit', [PageController::class, 'masterDataContractorEdit'])->name('pages.master-data.contractor.edit');
     Route::put('/pages/master-data/contractor/{id}', [PageController::class, 'masterDataContractorUpdate'])->name('pages.master-data.contractor.update');
     Route::delete('/pages/master-data/contractor/{id}', [PageController::class, 'masterDataContractorDelete'])->name('pages.master-data.contractor.delete');
     Route::get('/pages/master-data/status', [PageController::class, 'masterDataStatus'])->name('pages.master-data.status');
+    Route::post('/pages/master-data/status', [PageController::class, 'masterDataStatusStore'])->name('pages.master-data.status.store');
+    Route::put('/pages/master-data/status/{id}', [PageController::class, 'masterDataStatusUpdate'])->name('pages.master-data.status.update');
+    Route::delete('/pages/master-data/status/{id}', [PageController::class, 'masterDataStatusDelete'])->name('pages.master-data.status.delete');
     Route::get('/pages/master-data/project-category', [PageController::class, 'masterDataProjectCategory'])->name('pages.master-data.project-category');
     Route::post('/pages/master-data/project-category', [PageController::class, 'masterDataProjectCategoryStore'])->name('pages.master-data.project-category.store');
     Route::put('/pages/master-data/project-category/{id}', [PageController::class, 'masterDataProjectCategoryUpdate'])->name('pages.master-data.project-category.update');
@@ -96,6 +103,10 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::post('/pages/master-data/noc-note', [PageController::class, 'masterDataNocNoteStore'])->name('pages.master-data.noc-note.store');
     Route::put('/pages/master-data/noc-note/{id}', [PageController::class, 'masterDataNocNoteUpdate'])->name('pages.master-data.noc-note.update');
     Route::delete('/pages/master-data/noc-note/{id}', [PageController::class, 'masterDataNocNoteDelete'])->name('pages.master-data.noc-note.delete');
+    Route::get('/pages/master-data/upkj', [PageController::class, 'masterDataUpkj'])->name('pages.master-data.upkj');
+    Route::post('/pages/master-data/upkj', [PageController::class, 'masterDataUpkjStore'])->name('pages.master-data.upkj.store');
+    Route::put('/pages/master-data/upkj/{id}', [PageController::class, 'masterDataUpkjUpdate'])->name('pages.master-data.upkj.update');
+    Route::delete('/pages/master-data/upkj/{id}', [PageController::class, 'masterDataUpkjDelete'])->name('pages.master-data.upkj.delete');
     Route::get('/pages/group-roles', [PageController::class, 'groupRoles'])->name('pages.group-roles');
     Route::get('/pages/users-id', [PageController::class, 'usersId'])->name('pages.users-id');
     Route::get('/pages/users-id/residen', [PageController::class, 'usersIdResiden'])->name('pages.users-id.residen');
@@ -188,6 +199,14 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     
     Route::get('/pages/financial-analysis', [PageController::class, 'financialAnalysis'])->name('pages.financial-analysis');
 });
+
+// API routes for AJAX requests
+Route::get('/api/weather', [PageController::class, 'getWeather'])->name('api.weather');
+Route::get('/api/upkj/classes', [PageController::class, 'getUpkjClasses'])->name('api.upkj.classes');
+Route::get('/api/upkj/heads', [PageController::class, 'getUpkjHeads'])->name('api.upkj.heads');
+Route::get('/api/upkj/subheads', [PageController::class, 'getUpkjSubheads'])->name('api.upkj.subheads');
+Route::get('/api/upkj-classifications', [\App\Http\Controllers\Api\ApiController::class, 'getUpkjClassifications'])->name('api.upkj-classifications');
+Route::get('/api/districts', [\App\Http\Controllers\Api\ApiController::class, 'getDistricts'])->name('api.districts');
 
 // Redirect root to dashboard or login
 Route::get('/', function () {

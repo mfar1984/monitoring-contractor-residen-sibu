@@ -5,11 +5,15 @@
 .env.production
 .phpactor.json
 .phpunit.result.cache
+/*.md
+!README.md
 /.fleet
 /.idea
+/.kiro
 /.nova
 /.phpunit.cache
 /.vscode
+/.well-known
 /.zed
 /auth.json
 /node_modules

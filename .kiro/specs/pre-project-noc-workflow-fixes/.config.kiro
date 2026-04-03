@@ -1,8 +1,0 @@
-{
-  "name": "pre-project-noc-workflow-fixes",
-  "displayName": "Pre-Project and NOC Workflow Fixes",
-  "version": "1.0.0",
-  "description": "Corrections to Pre-Project approval workflow (single approval level) and NOC budget validation (full allocation requirement)",
-  "createdAt": "2026-02-17T00:00:00.000Z",
-  "updatedAt": "2026-02-17T00:00:00.000Z"
-}

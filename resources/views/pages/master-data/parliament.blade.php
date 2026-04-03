@@ -173,8 +173,8 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const createBtn = document.querySelector('.btn-primary');
-    if (createBtn && createBtn.textContent.includes('Create Category')) {
+    const createBtn = document.getElementById('create-button');
+    if (createBtn) {
         createBtn.onclick = function(e) {
             e.preventDefault();
             openCreateModal();

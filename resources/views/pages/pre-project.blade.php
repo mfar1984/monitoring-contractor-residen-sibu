@@ -140,7 +140,7 @@
                 title="Pre-Project"
                 description="Manage pre-project data and information."
                 :createButtonText="$createButtonText"
-                createButtonRoute="#"
+                createButtonRoute="javascript:openCreateModal()"
                 searchPlaceholder="Search pre-projects..."
                 :columns="['Name', 'Agency', 'Parliament', 'Total Cost (RM)', 'Status', 'Completeness', 'Actions']"
                 :data="$preProjects"

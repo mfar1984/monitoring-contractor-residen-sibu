@@ -43,10 +43,11 @@
 
         <div style="border-top: 1px solid #e0e0e0; margin-bottom: 24px;"></div>
 
-            <!-- Transfer Information -->
+        <!-- Transfer Information & Application Letter -->
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px;">
-            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #333;">Transfer Information</h4>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #333;">Contractor Analysis Transfer Information</h4>
+            
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px;">
                 <div>
                     <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Transfer Number</div>
                     <div style="font-size: 12px; font-weight: 600; color: #333;">{{ $transfer->transfer_number }}</div>
@@ -82,21 +83,21 @@
                     <div style="font-size: 12px; font-weight: 600; color: #333;">{{ $transfer->projects->count() }} projects</div>
                 </div>
             </div>
-        </div>
 
-        <!-- Attachment Section -->
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px;">
-            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #333;">Application Letter</h4>
-            @if($transfer->attachment_path)
-                <a href="{{ route('pages.contractor-analysis.download', $transfer->id) }}" 
-                   style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 16px; background-color: white; border: 1px solid #dee2e6; border-radius: 4px; text-decoration: none; color: #007bff; font-size: 12px; font-weight: 600;">
-                    <span class="material-symbols-outlined" style="font-size: 20px;">description</span>
-                    <span>{{ basename($transfer->attachment_path) }}</span>
-                    <span class="material-symbols-outlined" style="font-size: 18px; margin-left: 8px;">download</span>
-                </a>
-            @else
-                <p style="color: #999; font-size: 12px;">No attachment available</p>
-            @endif
+            <!-- Application Letter Section -->
+            <div style="border-top: 1px solid #dee2e6; padding-top: 20px;">
+                <h5 style="margin: 0 0 12px 0; font-size: 12px; font-weight: 600; color: #333;">Application Letter</h5>
+                @if($transfer->attachment_path)
+                    <a href="{{ route('pages.contractor-analysis.download', $transfer->id) }}" 
+                       style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 16px; background-color: white; border: 1px solid #dee2e6; border-radius: 4px; text-decoration: none; color: #007bff; font-size: 12px; font-weight: 600;">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">description</span>
+                        <span>{{ basename($transfer->attachment_path) }}</span>
+                        <span class="material-symbols-outlined" style="font-size: 18px; margin-left: 8px;">download</span>
+                    </a>
+                @else
+                    <p style="color: #999; font-size: 12px; margin: 0;">No attachment available</p>
+                @endif
+            </div>
         </div>
 
         <!-- Projects Table -->
@@ -122,7 +123,7 @@
                             <td style="padding: 8px; border: 1px solid #dee2e6;">{{ $project->project_number }}</td>
                             <td style="padding: 8px; border: 1px solid #dee2e6;">{{ $project->name }}</td>
                             <td style="padding: 8px; border: 1px solid #dee2e6;">{{ $project->agencyCategory?->name ?? '-' }}</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">{{ $project->parliament?->name ?? $project->dun?->name ?? '-' }}</td>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">{{ $project->parliament?->name ?? $project->dunBasic?->name ?? '-' }}</td>
                             <td style="padding: 8px; border: 1px solid #dee2e6; text-align: right; font-weight: 600;">{{ number_format($project->total_cost, 2) }}</td>
                             <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;">
                                 @if($project->status === 'Analysis Pending')
@@ -151,6 +152,216 @@
                     @endif
                 </table>
             </div>
+        </div>
+
+        <!-- Projects Details Accordion -->
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #333;">Project Details</h4>
+            
+            @foreach($transfer->projects as $index => $project)
+            <div class="accordion-item" style="margin-bottom: 10px; border: 1px solid #dee2e6; border-radius: 4px; background: white;">
+                <div class="accordion-header" onclick="toggleAccordion({{ $index }})" style="padding: 12px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border-radius: 4px;">
+                    <div>
+                        <span style="font-weight: 600; font-size: 12px; color: #333;">Project {{ $index + 1 }}: {{ $project->project_number }}</span>
+                        <span style="font-size: 11px; color: #666; margin-left: 10px;">{{ $project->name }}</span>
+                    </div>
+                    <span class="material-symbols-outlined accordion-icon" id="icon-{{ $index }}" style="font-size: 20px; color: #666; transition: transform 0.3s;">
+                        expand_more
+                    </span>
+                </div>
+                
+                <div class="accordion-content" id="content-{{ $index }}" style="display: none; padding: 16px; border-top: 1px solid #dee2e6;">
+
+            <!-- Basic Information -->
+            <div style="margin-bottom: 20px;">
+                <h5 style="margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #dee2e6; color: #333; font-size: 12px; font-weight: 600;">Basic Information</h5>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Project Number:</div>
+                    <div style="color: #333; font-size: 11px; font-weight: 500;">{{ $project->project_number }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Project Year:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->project_year }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Project Name:</div>
+                    <div style="color: #333; font-size: 11px; font-weight: 500;">{{ $project->name }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Residen:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->residenCategory?->name ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Agency:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->agencyCategory?->name ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Parliament / DUN:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->parliament?->name ?? $project->dunBasic?->name ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Project Category:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->projectCategory?->name ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Project Scope:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->project_scope ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Approval Date:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->approval_date ? $project->approval_date->format('d/m/Y') : '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Status:</div>
+                    <div style="color: #333; font-size: 11px;">
+                        @if($project->status === 'Analysis Pending')
+                            <span class="status-badge" style="background-color: #fff3cd; color: #856404;">Analysis Pending</span>
+                        @else
+                            <span class="status-badge status-active">{{ $project->status }}</span>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cost of Project -->
+            <div style="margin-bottom: 20px;">
+                <h5 style="margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #dee2e6; color: #333; font-size: 12px; font-weight: 600;">Cost of Project</h5>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Actual Project Cost:</div>
+                    <div style="color: #333; font-size: 11px;">RM {{ number_format($project->actual_project_cost ?? 0, 2) }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Consultation Cost:</div>
+                    <div style="color: #333; font-size: 11px;">RM {{ number_format($project->consultation_cost ?? 0, 2) }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">LSS Inspection Cost:</div>
+                    <div style="color: #333; font-size: 11px;">RM {{ number_format($project->lss_inspection_cost ?? 0, 2) }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">SST:</div>
+                    <div style="color: #333; font-size: 11px;">RM {{ number_format($project->sst ?? 0, 2) }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Others Cost:</div>
+                    <div style="color: #333; font-size: 11px;">RM {{ number_format($project->others_cost ?? 0, 2) }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px; font-weight: 600;">Total Cost:</div>
+                    <div style="color: #007bff; font-size: 11px; font-weight: 600;">RM {{ number_format($project->total_cost, 2) }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Implementation Period:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->implementation_period ?? '-' }}</div>
+                </div>
+            </div>
+
+            <!-- Project Location -->
+            <div style="margin-bottom: 20px;">
+                <h5 style="margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #dee2e6; color: #333; font-size: 12px; font-weight: 600;">Project Location</h5>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Division:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->division?->name ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">District:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->district?->name ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Parliament (Location):</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->parliamentLocation?->name ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">DUN (Location):</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->dun?->name ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Site Layout:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->site_layout ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Land Title Status:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->landTitleStatus?->name ?? '-' }}</div>
+                </div>
+            </div>
+
+            <!-- Implementation Details -->
+            <div style="margin-bottom: 0;">
+                <h5 style="margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #dee2e6; color: #333; font-size: 12px; font-weight: 600;">Implementation Details</h5>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Consultation Service:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->consultation_service ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Implementing Agency:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->implementingAgency?->name ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Implementation Method:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->implementationMethod?->name ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Project Ownership:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->projectOwnership?->name ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">JKKK Name:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->jkkk_name ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">State Government Asset:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->state_government_asset ?? '-' }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Bill of Quantity:</div>
+                    <div style="color: #333; font-size: 11px;">{{ $project->bill_of_quantity ?? '-' }}</div>
+                </div>
+                
+                @if($project->bill_of_quantity_attachment)
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px; margin-bottom: 8px;">
+                    <div style="color: #666; font-size: 11px;">Attachment:</div>
+                    <div style="color: #333; font-size: 11px;">
+                        <a href="{{ asset('storage/' . $project->bill_of_quantity_attachment) }}" target="_blank" style="color: #007bff; text-decoration: none;">
+                            <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">download</span>
+                            Download
+                        </a>
+                    </div>
+                </div>
+                @endif
+            </div>
+                </div>
+            </div>
+            @endforeach
         </div>
     </div>
 
@@ -193,6 +404,20 @@
             const modal = document.getElementById('deleteModal');
             if (event.target === modal) {
                 closeDeleteModal();
+            }
+        }
+
+        // Accordion toggle function
+        function toggleAccordion(index) {
+            const content = document.getElementById('content-' + index);
+            const icon = document.getElementById('icon-' + index);
+            
+            if (content.style.display === 'none' || content.style.display === '') {
+                content.style.display = 'block';
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                content.style.display = 'none';
+                icon.style.transform = 'rotate(0deg)';
             }
         }
     </script>

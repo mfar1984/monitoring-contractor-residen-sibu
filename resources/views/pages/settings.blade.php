@@ -136,7 +136,7 @@
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
                         <div class="form-group" style="margin-bottom: 0;">
                             <label for="currency">Currency</label>
                             <select id="currency" name="currency">

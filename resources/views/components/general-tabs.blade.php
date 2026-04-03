@@ -7,4 +7,5 @@
     <a href="{{ route('pages.general.approver') }}" class="tab-button {{ $active === 'approver' ? 'active' : '' }}">Approver</a>
     <a href="{{ route('pages.general.maintenance') }}" class="tab-button {{ $active === 'maintenance' ? 'active' : '' }}">Maintenance</a>
     <a href="{{ route('pages.general.translation') }}" class="tab-button {{ $active === 'translation' ? 'active' : '' }}">Translation</a>
+    <a href="{{ route('pages.general.legal') }}" class="tab-button {{ $active === 'legal' ? 'active' : '' }}">Legal</a>
 </div>

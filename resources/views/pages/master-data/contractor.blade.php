@@ -23,33 +23,40 @@
             </div>
             @endif
 
+            @if(session('error'))
+            <div style="padding: 10px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 15px;">
+                {{ session('error') }}
+            </div>
+            @endif
+
             <x-data-table
                 title="Contractor Companies"
                 description="Manage contractor company list."
-                createButtonText="Create Category"
-                createButtonRoute="#"
-                searchPlaceholder="Search contractors..."
-                :columns="['Company Name', 'Code', 'Registration No.', 'Description', 'Status', 'Actions']"
-                :data="$categories"
-                :rowsPerPage="5"
+                createButtonText="Create Company"
+                createButtonRoute="{{ route('pages.master-data.contractor.create') }}"
+                searchPlaceholder="Search companies..."
+                :columns="['Company Name', 'Registration No.', 'Code', 'UPKJ Class', 'Manpower', 'Status', 'Actions']"
+                :data="$contractors"
+                :rowsPerPage="10"
             >
-                @forelse($categories as $category)
+                @forelse($contractors as $contractor)
                 <tr>
-                    <td>{{ $category->company_name }}</td>
-                    <td>{{ $category->code }}</td>
-                    <td>{{ $category->registration_number ?? '-' }}</td>
-                    <td>{{ $category->description ?? '-' }}</td>
+                    <td>{{ $contractor->company_name }}</td>
+                    <td>{{ $contractor->registration_number ?? '-' }}</td>
+                    <td>{{ $contractor->code }}</td>
+                    <td>{{ $contractor->upkj_class ?? '-' }}</td>
+                    <td>{{ $contractor->manpower_total }}</td>
                     <td>
-                        <span class="status-badge {{ $category->status === 'Active' ? 'status-active' : 'status-suspended' }}">
-                            {{ $category->status }}
+                        <span class="status-badge {{ $contractor->status === 'Active' ? 'status-active' : 'status-suspended' }}">
+                            {{ $contractor->status }}
                         </span>
                     </td>
                     <td>
                         <div class="action-buttons">
-                            <button class="action-btn action-edit" title="Edit" onclick="editCategory({{ $category->id }}, '{{ $category->company_name }}', '{{ $category->code }}', '{{ $category->registration_number }}', '{{ $category->description }}', '{{ $category->status }}')">
+                            <a href="{{ route('pages.master-data.contractor.edit', $contractor->id) }}" class="action-btn action-edit" title="Edit">
                                 <span class="material-symbols-outlined">edit</span>
-                            </button>
-                            <button class="action-btn action-delete" title="Delete" onclick="deleteCategory({{ $category->id }}, '{{ $category->company_name }}')">
+                            </a>
+                            <button class="action-btn action-delete" title="Delete" onclick="deleteContractor({{ $contractor->id }}, '{{ $contractor->company_name }}')">
                                 <span class="material-symbols-outlined">delete</span>
                             </button>
                         </div>
@@ -57,65 +64,10 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6" style="text-align: center; padding: 20px;">No contractors found</td>
+                    <td colspan="7" style="text-align: center; padding: 20px;">No companies found</td>
                 </tr>
                 @endforelse
             </x-data-table>
-        </div>
-    </div>
-
-    <!-- Create/Edit Modal -->
-    <div class="modal-overlay" id="categoryModal">
-        <div class="modal-container">
-            <div class="modal-header">
-                <h3 class="modal-title" id="modalTitle">Create Category</h3>
-                <button class="modal-close" onclick="closeModal()">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
-            </div>
-            <form id="categoryForm" method="POST" action="{{ route('pages.master-data.contractor.store') }}">
-                @csrf
-                <input type="hidden" name="_method" value="POST" id="formMethod">
-                <input type="hidden" name="id" id="categoryId">
-                
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="company_name">Company Name <span style="color: #dc3545;">*</span></label>
-                        <input type="text" id="company_name" name="company_name" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="code">Code <span style="color: #dc3545;">*</span></label>
-                        <input type="text" id="code" name="code" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="registration_number">Registration Number</label>
-                        <input type="text" id="registration_number" name="registration_number">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="description">Description</label>
-                        <textarea id="description" name="description"></textarea>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="status">Status <span style="color: #dc3545;">*</span></label>
-                        <select id="status" name="status" required>
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">
-                        <span class="material-symbols-outlined">save</span>
-                        Save
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
 
@@ -148,47 +100,7 @@
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const createBtn = document.querySelector('.btn-primary');
-    if (createBtn && createBtn.textContent.includes('Create Category')) {
-        createBtn.onclick = function(e) {
-            e.preventDefault();
-            openCreateModal();
-        };
-    }
-});
-
-function openCreateModal() {
-    document.getElementById('modalTitle').textContent = 'Create Category';
-    document.getElementById('categoryForm').action = '{{ route("pages.master-data.contractor.store") }}';
-    document.getElementById('formMethod').value = 'POST';
-    document.getElementById('categoryId').value = '';
-    document.getElementById('company_name').value = '';
-    document.getElementById('code').value = '';
-    document.getElementById('registration_number').value = '';
-    document.getElementById('description').value = '';
-    document.getElementById('status').value = 'Active';
-    document.getElementById('categoryModal').classList.add('show');
-}
-
-function editCategory(id, companyName, code, registrationNumber, description, status) {
-    document.getElementById('modalTitle').textContent = 'Edit Category';
-    document.getElementById('categoryForm').action = '/pages/master-data/contractor/' + id;
-    document.getElementById('formMethod').value = 'PUT';
-    document.getElementById('categoryId').value = id;
-    document.getElementById('company_name').value = companyName;
-    document.getElementById('code').value = code;
-    document.getElementById('registration_number').value = registrationNumber || '';
-    document.getElementById('description').value = description || '';
-    document.getElementById('status').value = status;
-    document.getElementById('categoryModal').classList.add('show');
-}
-
-function closeModal() {
-    document.getElementById('categoryModal').classList.remove('show');
-}
-
-function deleteCategory(id, name) {
+function deleteContractor(id, name) {
     document.getElementById('deleteMessage').textContent = 'Are you sure you want to delete "' + name + '"?';
     document.getElementById('deleteForm').action = '/pages/master-data/contractor/' + id;
     document.getElementById('deleteModal').classList.add('show');
@@ -198,12 +110,7 @@ function closeDeleteModal() {
     document.getElementById('deleteModal').classList.remove('show');
 }
 
-document.getElementById('categoryModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
-    }
-});
-
+// Close modal on outside click
 document.getElementById('deleteModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeDeleteModal();

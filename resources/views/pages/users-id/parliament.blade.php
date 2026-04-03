@@ -147,14 +147,13 @@
                         <input type="text" id="username" name="username" required>
                     </div>
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div class="form-group">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 0;">
+                        <div class="form-group" style="margin-bottom: 0;">
                             <label for="password">Password <span style="color: #dc3545;" id="passwordRequired">*</span></label>
                             <input type="password" id="password" name="password">
-                            <small style="color: #666666; font-size: 11px;">Leave blank to keep current password (when editing)</small>
                         </div>
                         
-                        <div class="form-group">
+                        <div class="form-group" style="margin-bottom: 0;">
                             <label for="password_confirmation">Confirm Password <span style="color: #dc3545;" id="passwordConfirmRequired">*</span></label>
                             <input type="password" id="password_confirmation" name="password_confirmation">
                         </div>
@@ -202,8 +201,8 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const createBtn = document.querySelector('.btn-primary');
-    if (createBtn && createBtn.textContent.includes('Create User')) {
+    const createBtn = document.getElementById('create-button');
+    if (createBtn) {
         createBtn.onclick = function(e) {
             e.preventDefault();
             openCreateModal();

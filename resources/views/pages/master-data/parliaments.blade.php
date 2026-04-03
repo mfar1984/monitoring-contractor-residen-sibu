@@ -99,6 +99,15 @@
                         <div id="budget-entries" style="display: flex; flex-direction: column; gap: 10px;">
                             <!-- Budget rows will be added here dynamically -->
                         </div>
+                        @if(auth()->user()->residen_category_id)
+                        <button type="button" 
+                                class="btn" 
+                                onclick="addBudgetRow()"
+                                style="margin-top: 10px; background-color: #28a745; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px;">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">add</span>
+                            Add Year
+                        </button>
+                        @endif
                     </div>
                     
                     <div class="form-group">
@@ -156,10 +165,11 @@
 @push('scripts')
 <script>
 let budgetRowIndex = 0;
+const isResiden = {{ auth()->user()->residen_category_id ? 'true' : 'false' }};
 
 document.addEventListener('DOMContentLoaded', function() {
-    const createBtn = document.querySelector('.btn-primary');
-    if (createBtn && createBtn.textContent.includes('Create Parliament')) {
+    const createBtn = document.getElementById('create-button');
+    if (createBtn) {
         createBtn.onclick = function(e) {
             e.preventDefault();
             openCreateModal();
@@ -167,10 +177,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function createBudgetRow(index, year = '', budget = '') {
+function createBudgetRow(index, year = '', budget = '', isReadOnly = false) {
     const row = document.createElement('div');
     row.className = 'budget-row';
-    row.style.cssText = 'display: grid; grid-template-columns: 150px 1fr auto auto; gap: 10px; align-items: start;';
+    row.style.cssText = 'display: grid; grid-template-columns: 150px 1fr auto; gap: 10px; align-items: start;';
     row.dataset.index = index;
     
     const currentYear = new Date().getFullYear();
@@ -179,9 +189,23 @@ function createBudgetRow(index, year = '', budget = '') {
         yearOptions.push(`<option value="${y}" ${year == y ? 'selected' : ''}>${y}</option>`);
     }
     
+    // Only show Delete button if user is Residen
+    const deleteButton = isResiden ? `
+        <button type="button" 
+                class="btn action-btn action-delete delete-budget-btn" 
+                onclick="removeBudgetRow(${index})"
+                title="Delete"
+                style="height: 34px; width: 34px; padding: 5px; display: flex; align-items: center; justify-content: center; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            <span class="material-symbols-outlined" style="font-size: 18px; color: white;">remove</span>
+        </button>
+    ` : '';
+    
+    const disabledAttr = isResiden ? '' : 'disabled';
+    const readOnlyStyle = isResiden ? '' : 'background-color: #f5f5f5; cursor: not-allowed;';
+    
     row.innerHTML = `
         <div class="form-group" style="margin: 0;">
-            <select name="budgets[${index}][year]" required style="height: 34px;">
+            <select name="budgets[${index}][year]" required style="height: 34px; ${readOnlyStyle}" ${disabledAttr}>
                 <option value="">Year</option>
                 ${yearOptions.join('')}
             </select>
@@ -194,28 +218,22 @@ function createBudgetRow(index, year = '', budget = '') {
                    min="0" 
                    step="0.01"
                    value="${budget}"
-                   style="height: 34px;">
+                   style="height: 34px; ${readOnlyStyle}"
+                   ${disabledAttr}>
         </div>
-        <button type="button" 
-                class="btn action-btn add-budget-btn" 
-                onclick="addBudgetRow()"
-                title="Add Year"
-                style="height: 34px; width: 34px; padding: 5px; display: flex; align-items: center; justify-content: center; background-color: #28a745; color: white; border: none;">
-            <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
-        </button>
-        <button type="button" 
-                class="btn action-btn action-delete delete-budget-btn" 
-                onclick="removeBudgetRow(${index})"
-                title="Delete"
-                style="height: 34px; width: 34px; padding: 5px; display: flex; align-items: center; justify-content: center; background-color: #dc3545; color: white; border: none;">
-            <span class="material-symbols-outlined" style="font-size: 18px; color: white;">remove</span>
-        </button>
+        ${deleteButton}
     `;
     
     return row;
 }
 
 function addBudgetRow() {
+    // Only allow Residen users to add budget rows
+    if (!isResiden) {
+        alert('Only Residen users can add budget allocations.');
+        return;
+    }
+    
     const container = document.getElementById('budget-entries');
     const row = createBudgetRow(budgetRowIndex++);
     container.appendChild(row);
@@ -223,6 +241,12 @@ function addBudgetRow() {
 }
 
 function removeBudgetRow(index) {
+    // Only allow Residen users to remove budget rows
+    if (!isResiden) {
+        alert('Only Residen users can remove budget allocations.');
+        return;
+    }
+    
     const container = document.getElementById('budget-entries');
     const row = container.querySelector(`[data-index="${index}"]`);
     if (row && container.children.length > 1) {
@@ -296,12 +320,13 @@ function editParliament(id) {
     
     if (parliament.budgets && parliament.budgets.length > 0) {
         parliament.budgets.forEach(budget => {
-            const row = createBudgetRow(budgetRowIndex++, budget.year, budget.budget);
+            const row = createBudgetRow(budgetRowIndex++, budget.year, budget.budget, !isResiden);
             container.appendChild(row);
         });
     } else {
         // If no budgets, add one empty row
-        addBudgetRow();
+        const row = createBudgetRow(budgetRowIndex++, '', '', !isResiden);
+        container.appendChild(row);
     }
     
     updateDeleteButtons();

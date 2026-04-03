@@ -98,6 +98,20 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        'pejabatresiden' => [
+            'driver' => 'mysql',
+            'host' => env('PEJABATRESIDEN_DB_HOST', '127.0.0.1'),
+            'port' => env('PEJABATRESIDEN_DB_PORT', '3306'),
+            'database' => env('PEJABATRESIDEN_DB_DATABASE', 'pejabatresiden'),
+            'username' => env('PEJABATRESIDEN_DB_USERNAME', 'root'),
+            'password' => env('PEJABATRESIDEN_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => true,
+            'engine' => null,
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

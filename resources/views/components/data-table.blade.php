@@ -22,7 +22,7 @@
         @endif
     </div>
     @if($createButtonText)
-    <button class="btn btn-primary" onclick="window.location='{{ $createButtonRoute }}'">
+    <button class="btn btn-primary" id="create-button" onclick="window.location='{{ $createButtonRoute }}'">
         <span class="material-symbols-outlined">add</span>
         {{ $createButtonText }}
     </button>
