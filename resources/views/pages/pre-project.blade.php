@@ -1098,6 +1098,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // Add event listener for Parliament/DUN dropdown change
+    const parliamentDunDropdown = document.getElementById('parliament_dun_basic');
+    if (parliamentDunDropdown) {
+        parliamentDunDropdown.addEventListener('change', function() {
+            // Update budget when Parliament/DUN selection changes
+            updateBudgetForYear();
+        });
+    }
 });
 
 function calculateTotal() {
@@ -1187,7 +1196,30 @@ function updateBudgetForYear() {
         return;
     }
     
-    fetch('/pages/pre-project/budget-info?year=' + selectedYear)
+    // Get selected Parliament/DUN
+    const parliamentDunValue = document.getElementById('parliament_dun_basic').value;
+    let parliamentId = null;
+    let dunId = null;
+    
+    // Parse parliament_dun_basic value (format: "parliament_1" or "dun_2")
+    if (parliamentDunValue) {
+        const parts = parliamentDunValue.split('_');
+        if (parts[0] === 'parliament' && parts[1]) {
+            parliamentId = parts[1];
+        } else if (parts[0] === 'dun' && parts[1]) {
+            dunId = parts[1];
+        }
+    }
+    
+    // Build URL with parameters
+    let url = '/pages/pre-project/budget-info?year=' + selectedYear;
+    if (parliamentId) {
+        url += '&parliament_id=' + parliamentId;
+    } else if (dunId) {
+        url += '&dun_id=' + dunId;
+    }
+    
+    fetch(url)
         .then(response => response.json())
         .then(data => {
             const totalCostDisplay = document.getElementById('total_cost_display');

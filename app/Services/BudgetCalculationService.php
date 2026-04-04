@@ -157,6 +157,106 @@ class BudgetCalculationService
         return $this->getUserBudgetData($user, $year);
     }
 
+    /**
+     * Get budget information for a specific Parliament or DUN constituency
+     * 
+     * This method is used when Residen users select a Parliament/DUN from dropdown
+     * 
+     * @param int|null $parliamentId
+     * @param int|null $dunId
+     * @param int|null $year (defaults to current year)
+     * @return array ['total_budget', 'total_allocated', 'remaining_budget', 'year', 'parliament_id', 'dun_id', 'source_name']
+     */
+    public function getBudgetForConstituency(?int $parliamentId, ?int $dunId, ?int $year = null): array
+    {
+        try {
+            $year = $year ?? date('Y');
+            
+            $totalBudget = 0;
+            $totalAllocated = 0;
+            $sourceName = '';
+            
+            // Get budget for Parliament
+            if ($parliamentId) {
+                $parliament = Parliament::find($parliamentId);
+                
+                if ($parliament) {
+                    // Get budget from parliament_budgets table for the year
+                    $budgetRecord = DB::table('parliament_budgets')
+                        ->where('parliament_id', $parliament->id)
+                        ->where('year', $year)
+                        ->first();
+                    
+                    $totalBudget = $budgetRecord ? $budgetRecord->budget : 0;
+                    $sourceName = $parliament->name;
+                    
+                    // Calculate total allocated for this Parliament in this year
+                    $totalAllocated = PreProject::where('parliament_id', $parliamentId)
+                        ->where('project_year', $year)
+                        ->whereNotIn('status', ['Cancelled', 'Rejected', 'NOC'])
+                        ->whereDoesntHave('project', function($query) {
+                            $query->where('status', 'Projek Dibatalkan');
+                        })
+                        ->sum('total_cost');
+                }
+            }
+            
+            // Get budget for DUN
+            if ($dunId) {
+                $dun = Dun::find($dunId);
+                
+                if ($dun) {
+                    // Get budget from dun_budgets table for the year
+                    $budgetRecord = DB::table('dun_budgets')
+                        ->where('dun_id', $dun->id)
+                        ->where('year', $year)
+                        ->first();
+                    
+                    $totalBudget = $budgetRecord ? $budgetRecord->budget : 0;
+                    $sourceName = $dun->name;
+                    
+                    // Calculate total allocated for this DUN in this year
+                    $totalAllocated = PreProject::where('dun_id', $dunId)
+                        ->where('project_year', $year)
+                        ->whereNotIn('status', ['Cancelled', 'Rejected', 'NOC'])
+                        ->whereDoesntHave('project', function($query) {
+                            $query->where('status', 'Projek Dibatalkan');
+                        })
+                        ->sum('total_cost');
+                }
+            }
+            
+            $remainingBudget = $totalBudget - $totalAllocated;
+            
+            return [
+                'total_budget' => (float) $totalBudget,
+                'total_allocated' => (float) $totalAllocated,
+                'remaining_budget' => (float) $remainingBudget,
+                'year' => $year,
+                'parliament_id' => $parliamentId,
+                'dun_id' => $dunId,
+                'source_name' => $sourceName,
+            ];
+        } catch (\Exception $e) {
+            Log::error('Failed to calculate constituency budget', [
+                'parliament_id' => $parliamentId,
+                'dun_id' => $dunId,
+                'year' => $year,
+                'error' => $e->getMessage(),
+            ]);
+            
+            return [
+                'total_budget' => 0.0,
+                'total_allocated' => 0.0,
+                'remaining_budget' => 0.0,
+                'year' => $year ?? date('Y'),
+                'parliament_id' => $parliamentId,
+                'dun_id' => $dunId,
+                'source_name' => '',
+            ];
+        }
+    }
+
     
     /**
      * Get aggregated budget data for Residen users

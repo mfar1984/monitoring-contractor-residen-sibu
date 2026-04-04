@@ -93,7 +93,7 @@
             <button class="page-tab" disabled>Reports <span style="font-size: 10px;">(Coming Soon)</span></button>
         </div>
 
-        <form method="POST" action="{{ route('pages.master-data.contractor.update', $contractor->id) }}">
+        <form method="POST" action="{{ route('pages.master-data.contractor.update', $contractor->id) }}" id="contractorEditForm">
             @csrf
             @method('PUT')
 
@@ -199,11 +199,11 @@
                     <div class="form-grid">
                         <div class="form-field">
                             <label>Division <span class="required">*</span></label>
-                            <select name="division" id="divisionSelect" required>
+                            <select name="division" id="divisionSelect" required onchange="filterDistricts()">
                                 <option value="">Select Division</option>
                                 <option value="ALL" {{ old('division', $contractor->division) == 'ALL' ? 'selected' : '' }}>ALL</option>
                                 @foreach($divisions as $division)
-                                    <option value="{{ $division->id }}" data-name="{{ $division->name }}" {{ old('division', $contractor->division) == $division->name ? 'selected' : '' }}>
+                                    <option value="{{ $division->name }}" data-id="{{ $division->id }}" {{ old('division', $contractor->division) == $division->name ? 'selected' : '' }}>
                                         {{ $division->name }}
                                     </option>
                                 @endforeach
@@ -215,7 +215,7 @@
                                 <option value="">Select District</option>
                                 <option value="ALL" {{ old('district', $contractor->district) == 'ALL' ? 'selected' : '' }}>ALL</option>
                                 @foreach($districts as $district)
-                                    <option value="{{ $district->id }}" data-name="{{ $district->name }}" data-division="{{ $district->division_id }}" {{ old('district', $contractor->district) == $district->name ? 'selected' : '' }}>
+                                    <option value="{{ $district->name }}" data-division-id="{{ $district->division_id }}" data-division-name="{{ $district->division->name ?? '' }}" {{ old('district', $contractor->district) == $district->name ? 'selected' : '' }}>
                                         {{ $district->name }}
                                     </option>
                                 @endforeach
@@ -403,36 +403,6 @@
                     </button>
                 </div>
 
-                <!-- Legacy UPKJ Information (Read-Only) -->
-                <div class="section-header">Legacy UPKJ Information (Read-Only)</div>
-                <div style="background-color: #f9f9f9; border: 1px solid #e0e0e0; padding: 15px; margin-bottom: 20px;">
-                    <p style="font-size: 11px; color: #666; margin-bottom: 10px; font-style: italic;">
-                        This section displays legacy UPKJ data from the original system. Use the UPKJ Registration Records section above to manage current records.
-                    </p>
-                    <div class="form-grid">
-                        <div class="form-field">
-                            <label>UPK License No.</label>
-                            <input type="text" name="upk_license_no" value="{{ old('upk_license_no', $contractor->upk_license_no ?? '') }}" placeholder="Enter UPK license number" readonly style="background-color: #f5f5f5;">
-                        </div>
-                        <div class="form-field">
-                            <label>Expiry Date</label>
-                            <input type="date" name="upk_expiry_date" value="{{ old('upk_expiry_date', $contractor->upk_expiry_date ? \Carbon\Carbon::parse($contractor->upk_expiry_date)->format('Y-m-d') : '') }}" readonly style="background-color: #f5f5f5;">
-                        </div>
-                        <div class="form-field">
-                            <label>UPKJ Class</label>
-                            <input type="text" value="{{ $contractor->upkj_class ?? 'N/A' }}" readonly style="background-color: #f5f5f5;">
-                        </div>
-                        <div class="form-field">
-                            <label>UPKJ Head</label>
-                            <input type="text" value="{{ $contractor->upkj_head ?? 'N/A' }}" readonly style="background-color: #f5f5f5;">
-                        </div>
-                        <div class="form-field" style="grid-column: span 2;">
-                            <label>UPKJ Subhead</label>
-                            <textarea rows="3" readonly style="background-color: #f5f5f5;">{{ $contractor->upkj_subhead ?? 'N/A' }}</textarea>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="section-header">Status</div>
                 <div style="background-color: white; border: 1px solid #e0e0e0; padding: 15px; margin-bottom: 20px;">
                     <div class="form-field">
@@ -605,6 +575,74 @@ function calculateTotalManpower() {
     
     const total = soleProprietor + management + professional + subProfessional + competentWorker;
     document.getElementById('manpowerTotal').value = total;
+}
+
+// Cascading Dropdown: Division → District
+let allDistricts = [];
+
+// Store all districts on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const districtSelect = document.getElementById('districtSelect');
+    const currentDistrictValue = districtSelect.value; // Save current selected value
+    
+    allDistricts = Array.from(districtSelect.options).map(option => ({
+        value: option.value,
+        text: option.textContent,
+        divisionId: option.getAttribute('data-division-id'),
+        divisionName: option.getAttribute('data-division-name')
+    }));
+    
+    // Trigger filter on page load to show correct districts
+    filterDistricts();
+    
+    // Restore the selected district value after filtering
+    if (currentDistrictValue) {
+        districtSelect.value = currentDistrictValue;
+    }
+});
+
+function filterDistricts() {
+    const divisionSelect = document.getElementById('divisionSelect');
+    const districtSelect = document.getElementById('districtSelect');
+    const selectedDivision = divisionSelect.value;
+    
+    // Get selected division ID from data attribute
+    const selectedOption = divisionSelect.options[divisionSelect.selectedIndex];
+    const selectedDivisionId = selectedOption ? selectedOption.getAttribute('data-id') : null;
+    
+    // Clear current district options
+    districtSelect.innerHTML = '<option value="">Select District</option><option value="ALL">ALL</option>';
+    
+    // Show all districts if "ALL" or no division selected
+    if (selectedDivision === 'ALL' || selectedDivision === '' || !selectedDivisionId) {
+        allDistricts.forEach(district => {
+            if (district.value !== '' && district.value !== 'ALL') {
+                const option = document.createElement('option');
+                option.value = district.value;
+                option.textContent = district.text;
+                option.setAttribute('data-division-id', district.divisionId);
+                option.setAttribute('data-division-name', district.divisionName);
+                districtSelect.appendChild(option);
+            }
+        });
+        return;
+    }
+    
+    // Filter districts based on selected division ID
+    allDistricts.forEach(district => {
+        if (district.value === '' || district.value === 'ALL') {
+            return;
+        }
+        
+        if (district.divisionId === selectedDivisionId) {
+            const option = document.createElement('option');
+            option.value = district.value;
+            option.textContent = district.text;
+            option.setAttribute('data-division-id', district.divisionId);
+            option.setAttribute('data-division-name', district.divisionName);
+            districtSelect.appendChild(option);
+        }
+    });
 }
 
 // UPKJ filtering (placeholder - needs API implementation)
@@ -1135,7 +1173,7 @@ function loadExistingUpkjRecords() {
         // Convert old input object to array
         recordsToLoad = Object.values(oldUpkjRecords);
     } else if (existingUpkjRecords && existingUpkjRecords.length > 0) {
-        // Use existing records from database
+        // Use existing records from database (including auto-migrated legacy data)
         recordsToLoad = existingUpkjRecords;
     }
     
@@ -1202,124 +1240,29 @@ function loadExistingUpkjRecords() {
 // Load Existing Shareholders and Directors Data on Page Load
 // ============================================================================
 
-// Declare allDistricts in global scope so filterDistrictsByDivision can access it
-let allDistricts = [];
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Load existing shareholders (companies)
-    const shareholders = @json($shareholders ?? []);
-    shareholders.forEach(shareholder => {
-        addShareholderRow();
-        const lastRow = document.querySelector('#shareholdersTableBody tr:last-child');
-        if (lastRow) {
-            lastRow.querySelector('input[name*="[company_name]"]').value = shareholder.company_name || '';
-            lastRow.querySelector('input[name*="[registration_no]"]').value = shareholder.registration_no || '';
-            lastRow.querySelector('input[name*="[shares]"]').value = shareholder.shares || 0;
+// ============================================================================
+// Form Submission Debugging
+// ============================================================================
+document.getElementById('contractorEditForm').addEventListener('submit', function(e) {
+    const formData = new FormData(this);
+    
+    console.log('=== FORM SUBMISSION DEBUG ===');
+    console.log('Division:', formData.get('division'));
+    console.log('District:', formData.get('district'));
+    
+    // Log UPKJ records
+    let upkjCount = 0;
+    for (let [key, value] of formData.entries()) {
+        if (key.startsWith('upkj[')) {
+            console.log(key, '=', value);
+            upkjCount++;
         }
-    });
-    
-    // Load existing directors (individuals)
-    const directors = @json($directors ?? []);
-    directors.forEach(director => {
-        addDirectorRow();
-        const lastRow = document.querySelector('#directorsTableBody tr:last-child');
-        if (lastRow) {
-            lastRow.querySelector('input[name*="[name]"]').value = director.name || '';
-            lastRow.querySelector('input[name*="[ic_number]"]').value = director.registration_no || '';
-            lastRow.querySelector('input[name*="[shares]"]').value = director.shares || 0;
-        }
-    });
-    
-    // ============================================================================
-    // Division → District Cascading Dropdown
-    // ============================================================================
-    
-    // Store all districts for filtering
-    const districtSelect = document.getElementById('districtSelect');
-    if (districtSelect) {
-        allDistricts = Array.from(districtSelect.options).map(option => ({
-            value: option.value,
-            text: option.textContent,
-            divisionId: option.getAttribute('data-division'),
-            name: option.getAttribute('data-name')
-        }));
     }
+    console.log('Total UPKJ fields:', upkjCount);
+    console.log('=== END DEBUG ===');
     
-    // Add event listener to division dropdown
-    const divisionSelect = document.getElementById('divisionSelect');
-    if (divisionSelect) {
-        divisionSelect.addEventListener('change', filterDistrictsByDivision);
-    }
+    // Allow form to submit
+    return true;
 });
-
-/**
- * Filter districts based on selected division
- */
-function filterDistrictsByDivision() {
-    const divisionSelect = document.getElementById('divisionSelect');
-    const districtSelect = document.getElementById('districtSelect');
-    const selectedDivisionId = divisionSelect.value;
-    
-    // Store current selected district
-    const currentSelectedDistrict = districtSelect.value;
-    
-    // Clear current options
-    districtSelect.innerHTML = '<option value="">Select District</option>';
-    
-    // If "ALL" is selected, show all districts
-    if (selectedDivisionId === 'ALL' || selectedDivisionId === '') {
-        allDistricts.forEach(district => {
-            if (district.value !== '' && district.value !== 'ALL') {
-                const option = document.createElement('option');
-                option.value = district.value;
-                option.textContent = district.text;
-                option.setAttribute('data-division', district.divisionId);
-                option.setAttribute('data-name', district.name);
-                if (district.value === currentSelectedDistrict) {
-                    option.selected = true;
-                }
-                districtSelect.appendChild(option);
-            }
-        });
-        
-        // Add ALL option
-        const allOption = document.createElement('option');
-        allOption.value = 'ALL';
-        allOption.textContent = 'ALL';
-        if (currentSelectedDistrict === 'ALL') {
-            allOption.selected = true;
-        }
-        districtSelect.insertBefore(allOption, districtSelect.firstChild.nextSibling);
-        
-        return;
-    }
-    
-    // Filter districts by division
-    const filteredDistricts = allDistricts.filter(district => 
-        district.divisionId === selectedDivisionId && district.value !== '' && district.value !== 'ALL'
-    );
-    
-    // Add filtered districts to dropdown
-    filteredDistricts.forEach(district => {
-        const option = document.createElement('option');
-        option.value = district.value;
-        option.textContent = district.text;
-        option.setAttribute('data-division', district.divisionId);
-        option.setAttribute('data-name', district.name);
-        if (district.value === currentSelectedDistrict) {
-            option.selected = true;
-        }
-        districtSelect.appendChild(option);
-    });
-    
-    // If no districts found, show message
-    if (filteredDistricts.length === 0) {
-        const option = document.createElement('option');
-        option.value = '';
-        option.textContent = 'No districts available for this division';
-        option.disabled = true;
-        districtSelect.appendChild(option);
-    }
-}
 </script>
 @endsection

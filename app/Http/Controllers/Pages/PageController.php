@@ -983,9 +983,9 @@ class PageController extends Controller
         $contractor = \App\Models\ContractorCategory::with('upkjRecords')->findOrFail($id);
         $upkjClasses = \App\Models\ContractorCategory::getUpkjClasses();
         
-        // Get divisions and districts from database
+        // Get divisions and districts from database with relationships
         $divisions = \App\Models\Division::where('status', 'Active')->orderBy('name')->get();
-        $districts = \App\Models\District::where('status', 'Active')->orderBy('name')->get();
+        $districts = \App\Models\District::with('division')->where('status', 'Active')->orderBy('name')->get();
         
         // Separate shareholders data into companies and individuals
         $shareholders = [];
@@ -998,7 +998,119 @@ class PageController extends Controller
             }
         }
         
+        // AUTO-MIGRATE: If no UPKJ records exist but legacy data exists, parse and create UPKJ records
+        if ($contractor->upkjRecords->isEmpty() && !empty($contractor->upkj_subhead)) {
+            $this->migrateLegacyUpkjData($contractor);
+            // Reload contractor with new UPKJ records
+            $contractor = \App\Models\ContractorCategory::with('upkjRecords')->findOrFail($id);
+        }
+        
         return view('pages.master-data.contractor-edit', compact('contractor', 'upkjClasses', 'divisions', 'districts', 'shareholders', 'directors'));
+    }
+    
+    /**
+     * Migrate legacy UPKJ data to new UPKJ records structure
+     * Parses complex legacy format and creates proper UPKJ records
+     * 
+     * IMPORTANT: This method preserves ALL subhead codes from legacy data,
+     * even if they don't exist in upkj_classifications table
+     * 
+     * Format examples:
+     * "E         III     1(a),1(b),1(c)"  - TAB or multiple spaces
+     * "EX I 1,2(a)(i),2(a)(ii)"           - Single space between CLASS and HEAD
+     * " F II 1(a),1(b)"                   - Leading space
+     */
+    private function migrateLegacyUpkjData($contractor)
+    {
+        if (empty($contractor->upkj_subhead)) {
+            return;
+        }
+        
+        try {
+            // Parse legacy subhead format
+            $lines = explode("\n", trim($contractor->upkj_subhead));
+            $classifications = [];
+            
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if (empty($line)) continue;
+                
+                // Strategy: Find the last space before the comma-separated list
+                // This handles both "E III 1(a),1(b)" and "EX I 1,2(a)(i)"
+                
+                // First, find where the subheads start (look for comma or end of string)
+                // The pattern is: CLASS HEAD SUBHEADS
+                // We need to split into 3 parts intelligently
+                
+                // Method: Split by whitespace, then figure out which parts are CLASS, HEAD, SUBHEADS
+                $parts = preg_split('/\s+/', $line, 3);
+                
+                if (count($parts) >= 3) {
+                    $class = trim($parts[0]);
+                    $head = trim($parts[1]);
+                    $subheads = trim($parts[2]);
+                } elseif (count($parts) == 2) {
+                    // Edge case: "EX I" with no subheads? Skip
+                    continue;
+                } else {
+                    continue;
+                }
+                
+                // Split subheads by comma
+                $subheadList = array_map('trim', explode(',', $subheads));
+                
+                foreach ($subheadList as $subhead) {
+                    if (empty($subhead)) continue;
+                    
+                    // Try to get classification details from database
+                    $classificationData = \App\Models\UpkjClassification::where('class', $class)
+                        ->where('head_code', $head)
+                        ->where('subhead_code', $subhead)
+                        ->first();
+                    
+                    if ($classificationData) {
+                        // Found in database - use full details
+                        $classifications[] = [
+                            'id' => $classificationData->id,
+                            'class' => $classificationData->class,
+                            'head_code' => $classificationData->head_code,
+                            'subhead_code' => $classificationData->subhead_code,
+                            'description' => $classificationData->head_name ?? '',
+                            'subhead_roman' => $classificationData->subhead_roman ?? '',
+                            'subhead_letter' => $classificationData->subhead_letter ?? '',
+                        ];
+                    } else {
+                        // Not found in database - preserve legacy data anyway
+                        // This ensures NO data loss during migration
+                        $classifications[] = [
+                            'id' => null,
+                            'class' => $class,
+                            'head_code' => $head,
+                            'subhead_code' => $subhead,
+                            'description' => '',
+                            'subhead_roman' => '',
+                            'subhead_letter' => '',
+                        ];
+                    }
+                }
+            }
+            
+            // Create UPKJ record with all classifications
+            if (!empty($classifications)) {
+                $contractor->upkjRecords()->create([
+                    'category' => 'Works', // Default category
+                    'registration_status' => 'Valid',
+                    'validity_period' => '',
+                    'bumiputera_status' => null,
+                    'bumiputera_validity' => null,
+                    'certificate_no' => $contractor->upk_license_no ?? '',
+                    'classifications' => $classifications,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Log error but don't fail the page load
+            \Log::error('Failed to migrate legacy UPKJ data for contractor ' . $contractor->id . ': ' . $e->getMessage());
+        }
     }
 
     public function masterDataContractorDelete($id)
@@ -2545,9 +2657,18 @@ class PageController extends Controller
     {
         $user = auth()->user();
         $year = $request->input('year', now()->year);
+        $parliamentId = $request->input('parliament_id');
+        $dunId = $request->input('dun_id');
         
         $budgetService = new \App\Services\BudgetCalculationService();
-        $budgetInfo = $budgetService->getUserBudgetInfo($user, $year);
+        
+        // If Residen user and parliament_id or dun_id is provided, calculate budget for that constituency
+        if ($user->residen_category_id && ($parliamentId || $dunId)) {
+            $budgetInfo = $budgetService->getBudgetForConstituency($parliamentId, $dunId, $year);
+        } else {
+            // For Parliament/DUN users, use their assigned constituency
+            $budgetInfo = $budgetService->getUserBudgetInfo($user, $year);
+        }
         
         return response()->json($budgetInfo);
     }
