@@ -571,13 +571,11 @@ function calculateTotalManpower() {
 function filterUpkjHeads() {
     const upkjClass = document.getElementById('upkj_class').value;
     // TODO: Implement AJAX call to get heads based on class
-    console.log('Filter heads for class:', upkjClass);
 }
 
 function filterUpkjSubheads() {
     const upkjHead = document.getElementById('upkj_head').value;
     // TODO: Implement AJAX call to get subheads based on head
-    console.log('Filter subheads for head:', upkjHead);
 }
 
 // ============================================================================
@@ -625,7 +623,17 @@ function addUpkjRecordRow() {
                 </select>
                 <input type="text" name="upkj[${upkjRecordCount}][validity_period]" 
                        placeholder="e.g., 31/07/2025 - 30/07/2027"
-                       style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px;">
+                       style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px;" hidden>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                    <input type="date" name="upkj[${upkjRecordCount}][validity_from]" 
+                           placeholder="From"
+                           onchange="updateValidityPeriod(${upkjRecordCount})"
+                           style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
+                    <input type="date" name="upkj[${upkjRecordCount}][validity_to]" 
+                           placeholder="To"
+                           onchange="updateValidityPeriod(${upkjRecordCount})"
+                           style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
+                </div>
             </div>
         </td>
         <td>
@@ -638,7 +646,17 @@ function addUpkjRecordRow() {
                 </select>
                 <input type="text" name="upkj[${upkjRecordCount}][bumiputera_validity]" 
                        placeholder="e.g., 31/07/2025 - 30/07/2027"
-                       style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px;">
+                       style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px;" hidden>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                    <input type="date" name="upkj[${upkjRecordCount}][bumiputera_from]" 
+                           placeholder="From"
+                           onchange="updateBumiValidity(${upkjRecordCount})"
+                           style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
+                    <input type="date" name="upkj[${upkjRecordCount}][bumiputera_to]" 
+                           placeholder="To"
+                           onchange="updateBumiValidity(${upkjRecordCount})"
+                           style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
+                </div>
             </div>
         </td>
         <td>
@@ -991,3 +1009,48 @@ function filterDistrictsByDivision() {
 }
 </script>
 @endsection
+
+
+/**
+ * Update validity period from date inputs
+ */
+function updateValidityPeriod(index) {
+    const fromInput = document.querySelector(`input[name="upkj[${index}][validity_from]"]`);
+    const toInput = document.querySelector(`input[name="upkj[${index}][validity_to]"]`);
+    const hiddenInput = document.querySelector(`input[name="upkj[${index}][validity_period]"]`);
+    
+    if (fromInput && toInput && hiddenInput) {
+        const fromDate = fromInput.value;
+        const toDate = toInput.value;
+        
+        if (fromDate && toDate) {
+            // Convert YYYY-MM-DD to DD/MM/YYYY
+            const fromParts = fromDate.split('-');
+            const toParts = toDate.split('-');
+            const formatted = `${fromParts[2]}/${fromParts[1]}/${fromParts[0]} - ${toParts[2]}/${toParts[1]}/${toParts[0]}`;
+            hiddenInput.value = formatted;
+        }
+    }
+}
+
+/**
+ * Update bumiputera validity from date inputs
+ */
+function updateBumiValidity(index) {
+    const fromInput = document.querySelector(`input[name="upkj[${index}][bumiputera_from]"]`);
+    const toInput = document.querySelector(`input[name="upkj[${index}][bumiputera_to]"]`);
+    const hiddenInput = document.querySelector(`input[name="upkj[${index}][bumiputera_validity]"]`);
+    
+    if (fromInput && toInput && hiddenInput) {
+        const fromDate = fromInput.value;
+        const toDate = toInput.value;
+        
+        if (fromDate && toDate) {
+            // Convert YYYY-MM-DD to DD/MM/YYYY
+            const fromParts = fromDate.split('-');
+            const toParts = toDate.split('-');
+            const formatted = `${fromParts[2]}/${fromParts[1]}/${fromParts[0]} - ${toParts[2]}/${toParts[1]}/${toParts[0]}`;
+            hiddenInput.value = formatted;
+        }
+    }
+}

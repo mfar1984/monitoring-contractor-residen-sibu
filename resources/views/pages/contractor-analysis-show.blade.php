@@ -43,11 +43,11 @@
 
         <div style="border-top: 1px solid #e0e0e0; margin-bottom: 24px;"></div>
 
-        <!-- Transfer Information & Application Letter -->
+        <!-- Transfer Information -->
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px;">
-            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #333;">Contractor Analysis Transfer Information</h4>
+            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #333;">Transfer Information</h4>
             
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
                 <div>
                     <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Transfer Number</div>
                     <div style="font-size: 12px; font-weight: 600; color: #333;">{{ $transfer->transfer_number }}</div>
@@ -57,12 +57,12 @@
                     <div style="font-size: 12px; font-weight: 600; color: #333;">{{ $transfer->agency?->name ?? '-' }}</div>
                 </div>
                 <div>
-                    <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Created Date</div>
-                    <div style="font-size: 12px; font-weight: 600; color: #333;">{{ $transfer->created_at->format('d/m/Y H:i') }}</div>
-                </div>
-                <div>
                     <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Created By</div>
                     <div style="font-size: 12px; font-weight: 600; color: #333;">{{ $transfer->creator?->full_name ?? '-' }}</div>
+                </div>
+                <div>
+                    <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Created Date</div>
+                    <div style="font-size: 12px; font-weight: 600; color: #333;">{{ $transfer->created_at->format('d/m/Y H:i') }}</div>
                 </div>
                 <div>
                     <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Status</div>
@@ -78,36 +78,31 @@
                         @endif
                     </div>
                 </div>
-                <div>
-                    <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Total Projects</div>
-                    <div style="font-size: 12px; font-weight: 600; color: #333;">{{ $transfer->projects->count() }} projects</div>
-                </div>
-            </div>
-
-            <!-- Application Letter Section -->
-            <div style="border-top: 1px solid #dee2e6; padding-top: 20px;">
-                <h5 style="margin: 0 0 12px 0; font-size: 12px; font-weight: 600; color: #333;">Application Letter</h5>
-                @if($transfer->attachment_path)
-                    <a href="{{ route('pages.contractor-analysis.download', $transfer->id) }}" 
-                       style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 16px; background-color: white; border: 1px solid #dee2e6; border-radius: 4px; text-decoration: none; color: #007bff; font-size: 12px; font-weight: 600;">
-                        <span class="material-symbols-outlined" style="font-size: 20px;">description</span>
-                        <span>{{ basename($transfer->attachment_path) }}</span>
-                        <span class="material-symbols-outlined" style="font-size: 18px; margin-left: 8px;">download</span>
-                    </a>
-                @else
-                    <p style="color: #999; font-size: 12px; margin: 0;">No attachment available</p>
-                @endif
             </div>
         </div>
 
-        <!-- Projects Table -->
+        <!-- UPKJ Filter Criteria -->
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px;">
-            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #333;">Transferred Projects</h4>
+            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #333;">UPKJ Filter Criteria</h4>
+            
+            @if($transfer->hasUpkjFilter())
+                <div style="background: white; padding: 16px; border-radius: 4px; border: 1px solid #dee2e6;">
+                    <div style="font-size: 12px; color: #333; line-height: 1.6;">
+                        {{ $transfer->getFormattedUpkjFilter() }}
+                    </div>
+                </div>
+            @else
+                <p style="color: #999; font-size: 12px; margin: 0;">No UPKJ filter applied</p>
+            @endif
+        </div>
+
+        <!-- Project Information (Single Project) -->
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #333;">Project Information</h4>
             <div style="overflow-x: auto;">
                 <table style="width: 100%; border-collapse: collapse; font-size: 11px; background: white;">
                     <thead>
                         <tr style="background-color: #f8f9fa;">
-                            <th style="padding: 10px 8px; text-align: left; border: 1px solid #dee2e6; font-weight: 600;">No.</th>
                             <th style="padding: 10px 8px; text-align: left; border: 1px solid #dee2e6; font-weight: 600;">Project Number</th>
                             <th style="padding: 10px 8px; text-align: left; border: 1px solid #dee2e6; font-weight: 600;">Project Name</th>
                             <th style="padding: 10px 8px; text-align: left; border: 1px solid #dee2e6; font-weight: 600;">Agency</th>
@@ -117,9 +112,11 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($transfer->projects as $index => $project)
+                        @php
+                            $project = $transfer->projects->first();
+                        @endphp
+                        @if($project)
                         <tr>
-                            <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;">{{ $index + 1 }}</td>
                             <td style="padding: 8px; border: 1px solid #dee2e6;">{{ $project->project_number }}</td>
                             <td style="padding: 8px; border: 1px solid #dee2e6;">{{ $project->name }}</td>
                             <td style="padding: 8px; border: 1px solid #dee2e6;">{{ $project->agencyCategory?->name ?? '-' }}</td>
@@ -133,44 +130,78 @@
                                 @endif
                             </td>
                         </tr>
-                        @empty
+                        @else
                         <tr>
-                            <td colspan="7" style="padding: 20px; text-align: center; border: 1px solid #dee2e6; color: #999;">No projects found</td>
+                            <td colspan="6" style="padding: 20px; text-align: center; border: 1px solid #dee2e6; color: #999;">No project found</td>
                         </tr>
-                        @endforelse
+                        @endif
                     </tbody>
-                    @if($transfer->projects->count() > 0)
-                    <tfoot>
-                        <tr style="background-color: #f8f9fa; font-weight: 600;">
-                            <td colspan="5" style="padding: 10px 8px; border: 1px solid #dee2e6; text-align: right;">Total:</td>
-                            <td style="padding: 10px 8px; border: 1px solid #dee2e6; text-align: right; font-weight: 700; color: #007bff;">
-                                RM {{ number_format($transfer->projects->sum('total_cost'), 2) }}
-                            </td>
-                            <td style="padding: 10px 8px; border: 1px solid #dee2e6;"></td>
-                        </tr>
-                    </tfoot>
-                    @endif
                 </table>
             </div>
         </div>
 
-        <!-- Projects Details Accordion -->
+        <!-- Contractors Section -->
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px;">
-            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #333;">Project Details</h4>
+            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #333;">Selected Contractors</h4>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px; background: white;">
+                    <thead>
+                        <tr style="background-color: #f8f9fa;">
+                            <th style="padding: 10px 8px; text-align: left; border: 1px solid #dee2e6; font-weight: 600;">No.</th>
+                            <th style="padding: 10px 8px; text-align: left; border: 1px solid #dee2e6; font-weight: 600;">Company Name</th>
+                            <th style="padding: 10px 8px; text-align: left; border: 1px solid #dee2e6; font-weight: 600;">Registration Number</th>
+                            <th style="padding: 10px 8px; text-align: left; border: 1px solid #dee2e6; font-weight: 600;">UPKJ Classifications</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($transfer->contractors as $index => $contractor)
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;">{{ $index + 1 }}</td>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">{{ $contractor->company_name }}</td>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">{{ $contractor->registration_number ?? '-' }}</td>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">
+                                @if($contractor->upkjRecords->count() > 0)
+                                    @foreach($contractor->upkjRecords as $record)
+                                        <div style="margin-bottom: 4px;">
+                                            <span style="font-weight: 600;">{{ $record->category }}:</span>
+                                            {{ $record->getFormattedClassifications() }}
+                                        </div>
+                                    @endforeach
+                                @else
+                                    <span style="color: #999;">No UPKJ classifications</span>
+                                @endif
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="4" style="padding: 20px; text-align: center; border: 1px solid #dee2e6; color: #999;">No contractors selected</td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Project Details Accordion (Optional - for detailed view) -->
+        @php
+            $project = $transfer->projects->first();
+        @endphp
+        @if($project)
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #333;">Detailed Project Information</h4>
             
-            @foreach($transfer->projects as $index => $project)
-            <div class="accordion-item" style="margin-bottom: 10px; border: 1px solid #dee2e6; border-radius: 4px; background: white;">
-                <div class="accordion-header" onclick="toggleAccordion({{ $index }})" style="padding: 12px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border-radius: 4px;">
+            <div class="accordion-item" style="border: 1px solid #dee2e6; border-radius: 4px; background: white;">
+                <div class="accordion-header" onclick="toggleAccordion(0)" style="padding: 12px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #ffffff; border-radius: 4px;">
                     <div>
-                        <span style="font-weight: 600; font-size: 12px; color: #333;">Project {{ $index + 1 }}: {{ $project->project_number }}</span>
+                        <span style="font-weight: 600; font-size: 12px; color: #333;">{{ $project->project_number }}</span>
                         <span style="font-size: 11px; color: #666; margin-left: 10px;">{{ $project->name }}</span>
                     </div>
-                    <span class="material-symbols-outlined accordion-icon" id="icon-{{ $index }}" style="font-size: 20px; color: #666; transition: transform 0.3s;">
+                    <span class="material-symbols-outlined accordion-icon" id="icon-0" style="font-size: 20px; color: #666; transition: transform 0.3s;">
                         expand_more
                     </span>
                 </div>
                 
-                <div class="accordion-content" id="content-{{ $index }}" style="display: none; padding: 16px; border-top: 1px solid #dee2e6;">
+                <div class="accordion-content" id="content-0" style="display: none; padding: 16px; border-top: 1px solid #dee2e6;">
 
             <!-- Basic Information -->
             <div style="margin-bottom: 20px;">
@@ -361,9 +392,8 @@
             </div>
                 </div>
             </div>
-            @endforeach
         </div>
-    </div>
+        @endif
 
     <!-- Delete Confirmation Modal -->
     <div id="deleteModal" class="modal" style="display: none;">

@@ -83,6 +83,15 @@ class Project extends Model
     }
 
     /**
+     * Get all contractor analysis transfers that include this project
+     */
+    public function contractorAnalysisTransfers()
+    {
+        return $this->belongsToMany(ContractorAnalysisTransfer::class, 'contractor_analysis_project')
+            ->withTimestamps();
+    }
+
+    /**
      * Get the residen category
      */
     public function residenCategory()

@@ -3252,15 +3252,14 @@ class PageController extends Controller
     {
         $user = auth()->user();
         
-        $transfersQuery = \App\Models\ContractorAnalysisTransfer::with(['creator', 'agency', 'projects']);
-        
-        // Apply access control filtering
-        if ($user->agency_category_id) {
-            $transfersQuery->where('agency_category_id', $user->agency_category_id);
+        // Only Residen users can access
+        if (!$user->residen_category_id) {
+            abort(403, 'Unauthorized access. Only Residen users can access Contractor Analysis.');
         }
-        // Residen users see all transfers (no filter)
         
-        $transfers = $transfersQuery->orderBy('created_at', 'desc')->get();
+        $transfers = \App\Models\ContractorAnalysisTransfer::with(['agency', 'creator', 'projects', 'contractors'])
+            ->orderBy('created_at', 'desc')
+            ->get();
         
         return view('pages.contractor-analysis', compact('transfers'));
     }
@@ -3269,35 +3268,132 @@ class PageController extends Controller
     {
         $user = auth()->user();
         
-        // Check authorization
-        if (!$user->agency_category_id && !$user->residen_category_id) {
-            abort(403, 'Unauthorized. Only Agency and Residen users can create transfers.');
+        // Only Residen users can create
+        if (!$user->residen_category_id) {
+            abort(403, 'Unauthorized access.');
         }
         
-        $availableProjects = \App\Models\ContractorAnalysisTransfer::getAvailableProjects($user);
-        $agencies = \App\Models\AgencyCategory::where('status', 'Active')->get();
+        // Get available projects (Active status, not already in analysis)
+        $availableProjects = Project::where('status', 'Active')
+            ->whereDoesntHave('contractorAnalysisTransfers')
+            ->with(['agencyCategory', 'parliament', 'dunBasic'])
+            ->orderBy('project_number')
+            ->get();
         
-        return view('pages.contractor-analysis-create', compact('availableProjects', 'agencies'));
+        // Get UPKJ data with cascade structure (Category → Class → Head → Subhead)
+        // Get distinct categories
+        $categories = DB::table('upkj_classifications')
+            ->select('category')
+            ->distinct()
+            ->whereNotNull('category')
+            ->orderBy('category')
+            ->pluck('category');
+        
+        // Get all UPKJ classifications for cascade filtering
+        $upkjClassifications = DB::table('upkj_classifications')
+            ->select('category', 'class', 'class_description', 'head_code', 'head_name', 
+                     'subhead_code', 'subhead_letter', 'subhead_roman', 'description')
+            ->orderBy('category')
+            ->orderBy('class')
+            ->orderBy('head_code')
+            ->orderBy('subhead_code')
+            ->get();
+        
+        return view('pages.contractor-analysis-create', compact(
+            'availableProjects',
+            'categories',
+            'upkjClassifications'
+        ));
     }
 
-    public function contractorAnalysisStore(\App\Http\Requests\StoreContractorAnalysisTransferRequest $request)
+    public function contractorAnalysisStore(Request $request)
     {
-        $user = auth()->user();
-        $service = new \App\Services\ContractorAnalysisTransferService();
+        \Log::info('=== CONTRACTOR ANALYSIS STORE START ===');
+        \Log::info('Request Data:', $request->all());
         
+        $user = auth()->user();
+        \Log::info('User ID:', ['user_id' => $user->id, 'residen_category_id' => $user->residen_category_id]);
+        
+        // Only Residen users can create
+        if (!$user->residen_category_id) {
+            \Log::warning('Unauthorized access attempt by user: ' . $user->id);
+            abort(403, 'Unauthorized access.');
+        }
+        
+        // Validation
+        \Log::info('Starting validation...');
+        $validated = $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'upkj_categories' => 'nullable|array',
+            'upkj_classes' => 'nullable|array',
+            'upkj_heads' => 'nullable|array',
+            'upkj_subheads' => 'nullable|array',
+            'contractor_ids' => 'required|array|min:1',
+            'contractor_ids.*' => 'exists:contractor_categories,id',
+        ], [
+            'project_id.required' => 'Please select a project',
+            'contractor_ids.required' => 'Please select at least one contractor',
+            'contractor_ids.min' => 'Please select at least one contractor',
+        ]);
+        \Log::info('Validation passed');
+        
+        // Validate at least one UPKJ filter is provided
+        $hasUpkjFilter = !empty($request->upkj_categories) || 
+                        !empty($request->upkj_classes) || 
+                        !empty($request->upkj_heads) || 
+                        !empty($request->upkj_subheads);
+        
+        if (!$hasUpkjFilter) {
+            \Log::warning('No UPKJ filter provided');
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['upkj_filter' => 'Please select at least one UPKJ classification filter (Category, Class, Head, or Subhead)']);
+        }
+        
+        DB::beginTransaction();
         try {
-            $transfer = $service->createTransfer(
-                $request->validated(),
-                $request->file('attachment'),
-                $user
-            );
+            \Log::info('Transaction started');
             
-            return redirect()
-                ->route('pages.contractor-analysis')
-                ->with('success', 'Transfer created successfully: ' . $transfer->transfer_number);
+            // Get project to determine agency
+            $project = Project::findOrFail($validated['project_id']);
+            \Log::info('Project found:', ['project_id' => $project->id, 'agency_id' => $project->agency_category_id]);
+            
+            // Create transfer with arrays
+            $transfer = \App\Models\ContractorAnalysisTransfer::create([
+                'transfer_number' => \App\Models\ContractorAnalysisTransfer::generateTransferNumber(),
+                'agency_category_id' => $project->agency_category_id,
+                'created_by' => $user->id,
+                'status' => 'Draft',
+                'upkj_categories' => $request->upkj_categories ?? null,
+                'upkj_classes' => $request->upkj_classes ?? null,
+                'upkj_heads' => $request->upkj_heads ?? null,
+                'upkj_subheads' => $request->upkj_subheads ?? null,
+            ]);
+            \Log::info('Transfer created:', ['transfer_id' => $transfer->id, 'transfer_number' => $transfer->transfer_number]);
+            
+            // Attach project (single project)
+            $transfer->projects()->attach($validated['project_id']);
+            \Log::info('Project attached to transfer');
+            
+            // Attach contractors (multiple)
+            $transfer->contractors()->attach($validated['contractor_ids']);
+            \Log::info('Contractors attached:', ['count' => count($validated['contractor_ids'])]);
+            
+            // Update project status to "Analysis Pending"
+            $project->update(['status' => 'Analysis Pending']);
+            \Log::info('Project status updated to Analysis Pending');
+            
+            DB::commit();
+            \Log::info('Transaction committed successfully');
+            \Log::info('Redirecting to contractor-analysis list with success message');
+            
+            return redirect()->route('pages.contractor-analysis')
+                ->with('success', 'Contractor Analysis Transfer created successfully.');
                 
         } catch (\Exception $e) {
-            return back()
+            DB::rollBack();
+            \Log::error('Transaction failed:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return redirect()->back()
                 ->withInput()
                 ->with('error', 'Failed to create transfer: ' . $e->getMessage());
         }
@@ -3307,32 +3403,19 @@ class PageController extends Controller
     {
         $user = auth()->user();
         
-        $transfer = \App\Models\ContractorAnalysisTransfer::with([
-            'creator', 
-            'agency', 
-            'projects' => function($query) {
-                $query->with([
-                    'residenCategory',
-                    'agencyCategory',
-                    'parliament',
-                    'dunBasic',
-                    'projectCategory',
-                    'division',
-                    'district',
-                    'parliamentLocation',
-                    'dun',
-                    'landTitleStatus',
-                    'implementingAgency',
-                    'implementationMethod',
-                    'projectOwnership'
-                ]);
-            }
-        ])->findOrFail($id);
-        
-        // Verify access
-        if (!$user->residen_category_id && $user->agency_category_id !== $transfer->agency_category_id) {
-            abort(403, 'Unauthorized access to this transfer');
+        // Only Residen users can view
+        if (!$user->residen_category_id) {
+            abort(403, 'Unauthorized access.');
         }
+        
+        $transfer = \App\Models\ContractorAnalysisTransfer::with([
+            'agency',
+            'creator',
+            'projects.agencyCategory',
+            'projects.parliament',
+            'projects.dunBasic',
+            'contractors.upkjRecords'
+        ])->findOrFail($id);
         
         return view('pages.contractor-analysis-show', compact('transfer'));
     }
@@ -3340,24 +3423,42 @@ class PageController extends Controller
     public function contractorAnalysisDelete($id)
     {
         $user = auth()->user();
-        $service = new \App\Services\ContractorAnalysisTransferService();
+        
+        // Only Residen users can delete
+        if (!$user->residen_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
         
         $transfer = \App\Models\ContractorAnalysisTransfer::findOrFail($id);
         
-        // Verify access
-        if (!$user->residen_category_id && $user->agency_category_id !== $transfer->agency_category_id) {
-            abort(403, 'Unauthorized to delete this transfer');
+        // Only Draft transfers can be deleted
+        if ($transfer->status !== 'Draft') {
+            return redirect()->back()
+                ->with('error', 'Only Draft transfers can be deleted.');
         }
         
+        DB::beginTransaction();
         try {
-            $service->deleteTransfer($transfer);
+            // Get project before deletion
+            $project = $transfer->projects()->first();
             
-            return redirect()
-                ->route('pages.contractor-analysis')
-                ->with('success', 'Transfer deleted successfully');
+            // Delete transfer (cascade deletes pivot entries)
+            $transfer->delete();
+            
+            // Rollback project status to Active
+            if ($project) {
+                $project->update(['status' => 'Active']);
+            }
+            
+            DB::commit();
+            
+            return redirect()->route('pages.contractor-analysis')
+                ->with('success', 'Transfer deleted successfully.');
                 
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to delete transfer: ' . $e->getMessage());
+            DB::rollBack();
+            return redirect()->back()
+                ->with('error', 'Failed to delete transfer: ' . $e->getMessage());
         }
     }
 

@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('transfer_number', 50)->unique();
             $table->foreignId('created_by')->constrained('users')->onDelete('restrict');
             $table->foreignId('agency_category_id')->constrained('agency_categories')->onDelete('restrict');
-            $table->string('attachment_path', 255);
+            $table->string('attachment_path', 255)->nullable();
             $table->string('status', 50)->default('Draft');
             $table->timestamps();
             

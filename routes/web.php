@@ -207,6 +207,9 @@ Route::get('/api/upkj/heads', [PageController::class, 'getUpkjHeads'])->name('ap
 Route::get('/api/upkj/subheads', [PageController::class, 'getUpkjSubheads'])->name('api.upkj.subheads');
 Route::get('/api/upkj-classifications', [\App\Http\Controllers\Api\ApiController::class, 'getUpkjClassifications'])->name('api.upkj-classifications');
 Route::get('/api/districts', [\App\Http\Controllers\Api\ApiController::class, 'getDistricts'])->name('api.districts');
+Route::post('/api/contractors/filter-by-upkj', [\App\Http\Controllers\Api\ApiController::class, 'filterContractorsByUpkj'])->name('api.contractors.filter-by-upkj');
+Route::post('/api/upkj/available-heads', [\App\Http\Controllers\Api\ApiController::class, 'getAvailableUpkjHeads'])->name('api.upkj.available-heads');
+Route::post('/api/upkj/available-subheads', [\App\Http\Controllers\Api\ApiController::class, 'getAvailableUpkjSubheads'])->name('api.upkj.available-subheads');
 
 // Redirect root to dashboard or login
 Route::get('/', function () {

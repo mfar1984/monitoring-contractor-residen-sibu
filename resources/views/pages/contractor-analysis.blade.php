@@ -18,13 +18,13 @@
         
         <div class="tabs-content">
             @if(session('success'))
-            <div style="padding: 10px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; margin-bottom: 15px;">
+            <div id="successMessage" style="padding: 10px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; margin-bottom: 15px;">
                 {{ session('success') }}
             </div>
             @endif
 
             @if(session('error'))
-            <div style="padding: 10px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 15px;">
+            <div id="errorMessage" style="padding: 10px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 15px;">
                 {{ session('error') }}
             </div>
             @endif
@@ -32,10 +32,10 @@
             <x-data-table
                 title="Contractor Analysis Transfer"
                 description="Manage project transfers for contractor analysis and selection."
-                createButtonText="Create Transfer"
-                createButtonRoute="{{ route('pages.contractor-analysis.create') }}"
+                createButtonText="{{ auth()->user()->residen_category_id ? 'Create Transfer' : '' }}"
+                createButtonRoute="{{ auth()->user()->residen_category_id ? route('pages.contractor-analysis.create') : '#' }}"
                 searchPlaceholder="Search transfer number..."
-                :columns="['Transfer Number', 'Agency', 'Projects', 'Status', 'Created Date', 'Actions']"
+                :columns="['Transfer Number', 'Agency', 'Project', 'Contractors', 'Status', 'Created Date', 'Actions']"
                 :data="$transfers"
                 :rowsPerPage="10"
             >
@@ -47,7 +47,8 @@
                         </a>
                     </td>
                     <td>{{ $transfer->agency?->name ?? '-' }}</td>
-                    <td>{{ $transfer->projects->count() }} projects</td>
+                    <td>{{ $transfer->projects->count() }} project</td>
+                    <td>{{ $transfer->contractors->count() }} contractors</td>
                     <td>
                         @if($transfer->status === 'Draft')
                             <span class="status-badge" style="background-color: #f5f5f5; color: #666;">Draft</span>
@@ -65,10 +66,7 @@
                             <button class="action-btn action-view" title="View" onclick="window.location.href='{{ route('pages.contractor-analysis.show', $transfer->id) }}'">
                                 <span class="material-symbols-outlined">visibility</span>
                             </button>
-                            <button class="action-btn action-view" title="Download Attachment" onclick="window.location.href='{{ route('pages.contractor-analysis.download', $transfer->id) }}'">
-                                <span class="material-symbols-outlined">download</span>
-                            </button>
-                            @if($transfer->status === 'Draft')
+                            @if($transfer->status === 'Draft' && auth()->user()->residen_category_id)
                             <button class="action-btn action-delete" title="Delete" onclick="confirmDelete({{ $transfer->id }})">
                                 <span class="material-symbols-outlined">delete</span>
                             </button>
@@ -78,7 +76,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6" style="text-align: center; padding: 20px;">No transfer records found</td>
+                    <td colspan="7" style="text-align: center; padding: 20px;">No transfer records found</td>
                 </tr>
                 @endforelse
             </x-data-table>
@@ -95,7 +93,7 @@
             <div class="modal-body">
                 <p>Are you sure you want to delete this transfer?</p>
                 <p style="color: #666; font-size: 11px; margin-top: 10px;">
-                    This will rollback all transferred projects to Active status and delete the transfer permanently.
+                    This will rollback the project to Active status and delete the transfer permanently.
                 </p>
             </div>
             <div class="modal-footer">
@@ -128,5 +126,15 @@
                 closeDeleteModal();
             }
         }
+
+        // Auto-scroll to success/error message on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const successMessage = document.getElementById('successMessage');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            if (successMessage || errorMessage) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        });
     </script>
 @endsection

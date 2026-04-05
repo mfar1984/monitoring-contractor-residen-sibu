@@ -492,6 +492,10 @@ const existingUpkjRecords = @json($contractor->upkjRecords ?? []);
 // Task 10.3: Pass old input data for form repopulation on validation failure
 const oldUpkjRecords = @json(old('upkj', []));
 
+// Pass existing shareholders and directors data to JavaScript
+const existingShareholders = @json($shareholders ?? []);
+const existingDirectors = @json($directors ?? []);
+
 let shareholderCount = 0;
 let directorCount = 0;
 
@@ -649,13 +653,11 @@ function filterDistricts() {
 function filterUpkjHeads() {
     const upkjClass = document.getElementById('upkj_class').value;
     // TODO: Implement AJAX call to get heads based on class
-    console.log('Filter heads for class:', upkjClass);
 }
 
 function filterUpkjSubheads() {
     const upkjHead = document.getElementById('upkj_head').value;
     // TODO: Implement AJAX call to get subheads based on head
-    console.log('Filter subheads for head:', upkjHead);
 }
 
 // Refresh UPKJ dropdown when window regains focus (user returns from UPKJ Master Data tab)
@@ -703,8 +705,6 @@ function refreshUpkjDropdown() {
             if (currentValue) {
                 upkjClassSelect.value = currentValue;
             }
-            
-            console.log('UPKJ dropdown refreshed with', data.length, 'classes');
         })
         .catch(error => {
             console.error('Error refreshing UPKJ dropdown:', error);
@@ -757,7 +757,17 @@ function addUpkjRecordRow() {
                 </select>
                 <input type="text" name="upkj[${upkjRecordCount}][validity_period]" 
                        placeholder="e.g., 31/07/2025 - 30/07/2027"
-                       style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px;">
+                       style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px;" hidden>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                    <input type="date" name="upkj[${upkjRecordCount}][validity_from]" 
+                           placeholder="From"
+                           onchange="updateValidityPeriod(${upkjRecordCount})"
+                           style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
+                    <input type="date" name="upkj[${upkjRecordCount}][validity_to]" 
+                           placeholder="To"
+                           onchange="updateValidityPeriod(${upkjRecordCount})"
+                           style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
+                </div>
             </div>
         </td>
         <td>
@@ -770,7 +780,17 @@ function addUpkjRecordRow() {
                 </select>
                 <input type="text" name="upkj[${upkjRecordCount}][bumiputera_validity]" 
                        placeholder="e.g., 31/07/2025 - 30/07/2027"
-                       style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px;">
+                       style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px;" hidden>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                    <input type="date" name="upkj[${upkjRecordCount}][bumiputera_from]" 
+                           placeholder="From"
+                           onchange="updateBumiValidity(${upkjRecordCount})"
+                           style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
+                    <input type="date" name="upkj[${upkjRecordCount}][bumiputera_to]" 
+                           placeholder="To"
+                           onchange="updateBumiValidity(${upkjRecordCount})"
+                           style="width: 100%; height: 28px; padding: 4px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
+                </div>
             </div>
         </td>
         <td>
@@ -1063,6 +1083,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Task 9.1: Load existing UPKJ records on page load
     loadExistingUpkjRecords();
     
+    // Load existing shareholders and directors on page load
+    loadExistingShareholders();
+    loadExistingDirectors();
+    
     // Task 10.1: Add client-side validation on form submit
     const form = document.querySelector('form[action*="contractor"]');
     if (form) {
@@ -1203,6 +1227,19 @@ function loadExistingUpkjRecords() {
         const validityInput = document.querySelector(`input[name="upkj[${currentIndex}][validity_period]"]`);
         if (validityInput && record.validity_period) {
             validityInput.value = record.validity_period;
+            
+            // Split and populate date fields
+            if (record.validity_period.includes(' - ')) {
+                const dates = record.validity_period.split(' - ');
+                const fromDate = convertDDMMYYYYtoYYYYMMDD(dates[0].trim());
+                const toDate = convertDDMMYYYYtoYYYYMMDD(dates[1].trim());
+                
+                const fromInput = document.querySelector(`input[name="upkj[${currentIndex}][validity_from]"]`);
+                const toInput = document.querySelector(`input[name="upkj[${currentIndex}][validity_to]"]`);
+                
+                if (fromInput) fromInput.value = fromDate;
+                if (toInput) toInput.value = toDate;
+            }
         }
         
         const bumiStatusSelect = document.querySelector(`select[name="upkj[${currentIndex}][bumiputera_status]"]`);
@@ -1215,6 +1252,19 @@ function loadExistingUpkjRecords() {
         const bumiValidityInput = document.querySelector(`input[name="upkj[${currentIndex}][bumiputera_validity]"]`);
         if (bumiValidityInput && record.bumiputera_validity) {
             bumiValidityInput.value = record.bumiputera_validity;
+            
+            // Split and populate date fields
+            if (record.bumiputera_validity.includes(' - ')) {
+                const dates = record.bumiputera_validity.split(' - ');
+                const fromDate = convertDDMMYYYYtoYYYYMMDD(dates[0].trim());
+                const toDate = convertDDMMYYYYtoYYYYMMDD(dates[1].trim());
+                
+                const fromInput = document.querySelector(`input[name="upkj[${currentIndex}][bumiputera_from]"]`);
+                const toInput = document.querySelector(`input[name="upkj[${currentIndex}][bumiputera_to]"]`);
+                
+                if (fromInput) fromInput.value = fromDate;
+                if (toInput) toInput.value = toDate;
+            }
         }
         
         const certificateInput = document.querySelector(`input[name="upkj[${currentIndex}][certificate_no]"]`);
@@ -1240,29 +1290,120 @@ function loadExistingUpkjRecords() {
 // Load Existing Shareholders and Directors Data on Page Load
 // ============================================================================
 
-// ============================================================================
-// Form Submission Debugging
-// ============================================================================
-document.getElementById('contractorEditForm').addEventListener('submit', function(e) {
-    const formData = new FormData(this);
+/**
+ * Load existing shareholders data into the table
+ */
+function loadExistingShareholders() {
+    if (!existingShareholders || existingShareholders.length === 0) {
+        return;
+    }
     
-    console.log('=== FORM SUBMISSION DEBUG ===');
-    console.log('Division:', formData.get('division'));
-    console.log('District:', formData.get('district'));
+    const tableBody = document.getElementById('shareholdersTableBody');
     
-    // Log UPKJ records
-    let upkjCount = 0;
-    for (let [key, value] of formData.entries()) {
-        if (key.startsWith('upkj[')) {
-            console.log(key, '=', value);
-            upkjCount++;
+    existingShareholders.forEach((shareholder, index) => {
+        // Remove "No shareholders" message if exists
+        if (tableBody.querySelector('td[colspan="5"]')) {
+            tableBody.innerHTML = '';
+        }
+        
+        shareholderCount++;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td style="text-align: center;">${shareholderCount}</td>
+            <td><input type="text" name="shareholders[${shareholderCount}][name]" value="${shareholder.name || ''}" placeholder="Enter company name" style="width: 100%;"></td>
+            <td><input type="text" name="shareholders[${shareholderCount}][registration_no]" value="${shareholder.registration_no || ''}" placeholder="e.g., SA20180908" style="width: 100%;"></td>
+            <td><input type="number" name="shareholders[${shareholderCount}][shares]" value="${shareholder.shares || 0}" min="0" max="100" step="0.01" placeholder="0.00" style="width: 100%;"></td>
+            <td style="text-align: center;">
+                <span class="material-symbols-outlined btn-delete" onclick="this.closest('tr').remove(); reindexShareholderRows();" style="font-size: 16px;">delete</span>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+/**
+ * Load existing directors data into the table
+ */
+function loadExistingDirectors() {
+    if (!existingDirectors || existingDirectors.length === 0) {
+        return;
+    }
+    
+    const tableBody = document.getElementById('directorsTableBody');
+    
+    existingDirectors.forEach((director, index) => {
+        // Remove "No directors" message if exists
+        if (tableBody.querySelector('td[colspan="5"]')) {
+            tableBody.innerHTML = '';
+        }
+        
+        directorCount++;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td style="text-align: center;">${directorCount}</td>
+            <td><input type="text" name="directors[${directorCount}][name]" value="${director.name || ''}" placeholder="e.g., AHMAD ISHAMMUDIN BIN DAHRI" style="width: 100%;"></td>
+            <td><input type="text" name="directors[${directorCount}][ic_number]" value="${director.ic_number || ''}" placeholder="e.g., 890415-13-6231" style="width: 100%;"></td>
+            <td><input type="number" name="directors[${directorCount}][shares]" value="${director.shares || 0}" min="0" max="100" step="0.01" placeholder="0.00" style="width: 100%;"></td>
+            <td style="text-align: center;">
+                <span class="material-symbols-outlined btn-delete" onclick="this.closest('tr').remove(); reindexDirectorRows();" style="font-size: 16px;">delete</span>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+/**
+ * Convert DD/MM/YYYY to YYYY-MM-DD for date input
+ */
+function convertDDMMYYYYtoYYYYMMDD(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return '';
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+}
+
+/**
+ * Update validity period from date inputs
+ */
+function updateValidityPeriod(index) {
+    const fromInput = document.querySelector(`input[name="upkj[${index}][validity_from]"]`);
+    const toInput = document.querySelector(`input[name="upkj[${index}][validity_to]"]`);
+    const hiddenInput = document.querySelector(`input[name="upkj[${index}][validity_period]"]`);
+    
+    if (fromInput && toInput && hiddenInput) {
+        const fromDate = fromInput.value;
+        const toDate = toInput.value;
+        
+        if (fromDate && toDate) {
+            // Convert YYYY-MM-DD to DD/MM/YYYY
+            const fromParts = fromDate.split('-');
+            const toParts = toDate.split('-');
+            const formatted = `${fromParts[2]}/${fromParts[1]}/${fromParts[0]} - ${toParts[2]}/${toParts[1]}/${toParts[0]}`;
+            hiddenInput.value = formatted;
         }
     }
-    console.log('Total UPKJ fields:', upkjCount);
-    console.log('=== END DEBUG ===');
+}
+
+/**
+ * Update bumiputera validity from date inputs
+ */
+function updateBumiValidity(index) {
+    const fromInput = document.querySelector(`input[name="upkj[${index}][bumiputera_from]"]`);
+    const toInput = document.querySelector(`input[name="upkj[${index}][bumiputera_to]"]`);
+    const hiddenInput = document.querySelector(`input[name="upkj[${index}][bumiputera_validity]"]`);
     
-    // Allow form to submit
-    return true;
-});
+    if (fromInput && toInput && hiddenInput) {
+        const fromDate = fromInput.value;
+        const toDate = toInput.value;
+        
+        if (fromDate && toDate) {
+            // Convert YYYY-MM-DD to DD/MM/YYYY
+            const fromParts = fromDate.split('-');
+            const toParts = toDate.split('-');
+            const formatted = `${fromParts[2]}/${fromParts[1]}/${fromParts[0]} - ${toParts[2]}/${toParts[1]}/${toParts[0]}`;
+            hiddenInput.value = formatted;
+        }
+    }
+}
 </script>
 @endsection
