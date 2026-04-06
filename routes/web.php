@@ -197,7 +197,20 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::delete('/pages/contractor-analysis/{id}', [PageController::class, 'contractorAnalysisDelete'])->name('pages.contractor-analysis.delete');
     Route::get('/pages/contractor-analysis/{id}/download', [PageController::class, 'contractorAnalysisDownload'])->name('pages.contractor-analysis.download');
     
+    // Financial Analysis routes
     Route::get('/pages/financial-analysis', [PageController::class, 'financialAnalysis'])->name('pages.financial-analysis');
+    Route::get('/pages/financial-analysis/select-transfer', [PageController::class, 'financialAnalysisSelectTransfer'])->name('pages.financial-analysis.select-transfer');
+    Route::get('/pages/financial-analysis/create/{transferId}', [PageController::class, 'financialAnalysisCreate'])->name('pages.financial-analysis.create');
+    Route::post('/pages/financial-analysis/store/{transferId}', [PageController::class, 'financialAnalysisStore'])->name('pages.financial-analysis.store');
+    Route::get('/pages/financial-analysis/{id}', [PageController::class, 'financialAnalysisShow'])->name('pages.financial-analysis.show');
+    Route::get('/pages/financial-analysis/{id}/edit', [PageController::class, 'financialAnalysisEdit'])->name('pages.financial-analysis.edit');
+    Route::put('/pages/financial-analysis/{id}', [PageController::class, 'financialAnalysisUpdate'])->name('pages.financial-analysis.update');
+    Route::post('/pages/financial-analysis/{id}/submit', [PageController::class, 'financialAnalysisSubmit'])->name('pages.financial-analysis.submit');
+    Route::post('/pages/financial-analysis/{id}/approve', [PageController::class, 'financialAnalysisApprove'])->name('pages.financial-analysis.approve');
+    Route::post('/pages/financial-analysis/{id}/reject', [PageController::class, 'financialAnalysisReject'])->name('pages.financial-analysis.reject');
+    Route::delete('/pages/financial-analysis/{id}', [PageController::class, 'financialAnalysisDelete'])->name('pages.financial-analysis.delete');
+    Route::get('/pages/financial-analysis/{id}/export-excel', [PageController::class, 'financialAnalysisExportExcel'])->name('pages.financial-analysis.export-excel');
+    Route::get('/pages/financial-analysis/{id}/export-pdf', [PageController::class, 'financialAnalysisExportPdf'])->name('pages.financial-analysis.export-pdf');
 });
 
 // API routes for AJAX requests

@@ -55,6 +55,11 @@ class ContractorAnalysisTransfer extends Model
             ->withTimestamps();
     }
 
+    public function financialAnalysis()
+    {
+        return $this->hasOne(FinancialAnalysis::class, 'contractor_analysis_transfer_id');
+    }
+
     // Helper Methods
     public static function generateTransferNumber(): string
     {

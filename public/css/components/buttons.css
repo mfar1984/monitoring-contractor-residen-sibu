@@ -6,15 +6,14 @@
     cursor: pointer;
     font-size: 12px;
     transition: background-color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .btn-primary {
     background-color: #3498db;
     color: white;
-    width: auto;
-    display: flex;
-    align-items: center;
-    gap: 5px;
 }
 
 .btn-primary:hover {
@@ -50,12 +49,13 @@
     background-color: #5a6268;
 }
 
+.btn-secondary .material-symbols-outlined {
+    font-size: 16px;
+}
+
 .btn-danger {
     background-color: #dc3545;
     color: white;
-    display: flex;
-    align-items: center;
-    gap: 5px;
 }
 
 .btn-danger:hover {

@@ -3476,9 +3476,552 @@ class PageController extends Controller
         }
     }
 
+    /**
+     * Financial Analysis List Page
+     */
     public function financialAnalysis(): View
     {
-        return view('pages.financial-analysis');
+        $user = auth()->user();
+        
+        // Only Agency and Residen users can access
+        if (!$user->agency_category_id && !$user->residen_category_id) {
+            abort(403, 'Unauthorized access. Only Agency and Residen users can access Financial Analysis.');
+        }
+        
+        $query = \App\Models\FinancialAnalysis::with([
+            'transfer.projects',
+            'transfer.agency',
+            'creator',
+            'contractors'
+        ]);
+        
+        // Apply category filter
+        if ($user->agency_category_id) {
+            // Agency users see only their agency's analyses
+            $query->whereHas('transfer', function($q) use ($user) {
+                $q->where('agency_category_id', $user->agency_category_id);
+            });
+        }
+        // Residen users see all (no filter)
+        
+        $analyses = $query->orderBy('created_at', 'desc')->get();
+        
+        return view('pages.financial-analysis', compact('analyses'));
+    }
+
+    /**
+     * Select Transfer Page for Financial Analysis
+     */
+    public function financialAnalysisSelectTransfer(): View
+    {
+        $user = auth()->user();
+        
+        // Only Agency users can access
+        if (!$user->agency_category_id) {
+            abort(403, 'Unauthorized access. Only Agency users can create Financial Analysis.');
+        }
+        
+        // Get transfers for this agency that don't have financial analysis yet
+        $transfers = \App\Models\ContractorAnalysisTransfer::with(['projects', 'contractors'])
+            ->where('agency_category_id', $user->agency_category_id)
+            ->whereDoesntHave('financialAnalysis')
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        return view('pages.financial-analysis-select-transfer', compact('transfers'));
+    }
+
+    /**
+     * Financial Analysis Create Form
+     */
+    public function financialAnalysisCreate($transferId): View
+    {
+        $user = auth()->user();
+        
+        // Only Agency users can create
+        if (!$user->agency_category_id) {
+            abort(403, 'Unauthorized access. Only Agency users can create Financial Analysis.');
+        }
+        
+        $transfer = \App\Models\ContractorAnalysisTransfer::with([
+            'projects.agencyCategory',
+            'projects.district',
+            'projects.projectCategory',
+            'contractors.upkjRecords'
+        ])->findOrFail($transferId);
+        
+        // Verify transfer is assigned to user's agency
+        if ($transfer->agency_category_id !== $user->agency_category_id) {
+            abort(403, 'Unauthorized access. This transfer is not assigned to your agency.');
+        }
+        
+        // Check if analysis already exists
+        $existingAnalysis = \App\Models\FinancialAnalysis::where('contractor_analysis_transfer_id', $transferId)->first();
+        if ($existingAnalysis) {
+            return redirect()->route('pages.financial-analysis.show', $existingAnalysis->id)
+                ->with('info', 'Financial Analysis already exists for this transfer.');
+        }
+        
+        // Get default approval committee positions
+        $defaultPositions = [
+            'Residen Bahagian Sibu',
+            'Jurutera Bahagian (JKR)',
+            'Jurutera Bahagian (Pengairan & Saliran)',
+            'Jurutera Bahagian (Bekalan Air)',
+            'Setiausaha (Majlis Perbandaran)',
+            'Setiausaha (Majlis Daerah)',
+            'Pengerusi Jawatankuasa Perolehan RTP 2024',
+            'Ahli Jawatankuasa Perolehan RTP 2024',
+            'Pegawai Daerah (Sibu)',
+            'Pegawai Daerah (Kanowit)',
+            'Pegawai Daerah (Selangau)',
+            'Unit Integriti dan Ombudsman',
+            'Setiausaha Majlis Luar Bandar',
+        ];
+        
+        return view('pages.financial-analysis-create', compact('transfer', 'defaultPositions'));
+    }
+
+    /**
+     * Store Financial Analysis
+     */
+    public function financialAnalysisStore(Request $request, $transferId)
+    {
+        $user = auth()->user();
+        
+        // Only Agency users can create
+        if (!$user->agency_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        $transfer = \App\Models\ContractorAnalysisTransfer::findOrFail($transferId);
+        
+        // Verify transfer is assigned to user's agency
+        if ($transfer->agency_category_id !== $user->agency_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        // Validation
+        $validated = $request->validate([
+            'approval_committee' => 'required|array|min:1',
+            'approval_committee.*.position' => 'required|string',
+            'approval_committee.*.name' => 'nullable|string',
+            'approval_committee.*.department' => 'nullable|string',
+        ]);
+        
+        DB::beginTransaction();
+        try {
+            // Create financial analysis
+            $analysis = \App\Models\FinancialAnalysis::create([
+                'contractor_analysis_transfer_id' => $transferId,
+                'created_by' => $user->id,
+                'status' => 'Draft',
+            ]);
+            
+            // Auto-populate project information
+            $analysis->populateFromTransfer($transfer);
+            $analysis->save();
+            
+            // Create approval committee records
+            foreach ($request->approval_committee as $index => $committee) {
+                \App\Models\FinancialAnalysisApproval::create([
+                    'financial_analysis_id' => $analysis->id,
+                    'position' => $committee['position'],
+                    'name' => $committee['name'] ?? null,
+                    'department' => $committee['department'] ?? null,
+                    'display_order' => $index + 1,
+                ]);
+            }
+            
+            // Create contractor evaluation records
+            // CRITICAL: Eager load upkjRecords to populate Class and UPKJ data
+            $contractors = $transfer->contractors()->with('upkjRecords')->get();
+            foreach ($contractors as $index => $contractor) {
+                $evaluation = \App\Models\FinancialAnalysisContractor::create([
+                    'financial_analysis_id' => $analysis->id,
+                    'contractor_category_id' => $contractor->id,
+                    'display_order' => $index + 1,
+                ]);
+                
+                // Auto-populate contractor basic info
+                $evaluation->populateFromContractor($contractor);
+                $evaluation->save();
+                
+                // Create 5 bank statement entries (last 5 months)
+                for ($i = 4; $i >= 0; $i--) {
+                    $monthDate = now()->subMonths($i)->startOfMonth();
+                    \App\Models\FinancialAnalysisBankStatement::create([
+                        'financial_analysis_contractor_id' => $evaluation->id,
+                        'month_year' => $monthDate->format('M-y'),
+                        'month_date' => $monthDate,
+                        'display_order' => 5 - $i,
+                    ]);
+                }
+            }
+            
+            DB::commit();
+            
+            return redirect()->route('pages.financial-analysis.edit', $analysis->id)
+                ->with('success', 'Financial Analysis created successfully. Please enter financial data for each contractor.');
+                
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to create Financial Analysis: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Show Financial Analysis Detail
+     */
+    public function financialAnalysisShow($id): View
+    {
+        $user = auth()->user();
+        
+        // Only Agency and Residen users can access
+        if (!$user->agency_category_id && !$user->residen_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        $analysis = \App\Models\FinancialAnalysis::with([
+            'transfer.projects',
+            'transfer.agency',
+            'creator',
+            'submitter',
+            'approver',
+            'rejector',
+            'contractors.contractor',
+            'contractors.bankStatements',
+            'approvals'
+        ])->findOrFail($id);
+        
+        // Verify access
+        if ($user->agency_category_id) {
+            if ($analysis->transfer->agency_category_id !== $user->agency_category_id) {
+                abort(403, 'Unauthorized access.');
+            }
+        }
+        
+        return view('pages.financial-analysis-show', compact('analysis'));
+    }
+
+    /**
+     * Edit Financial Analysis Form
+     */
+    public function financialAnalysisEdit($id): View
+    {
+        $user = auth()->user();
+        
+        // Only Agency users can edit
+        if (!$user->agency_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        $analysis = \App\Models\FinancialAnalysis::with([
+            'transfer.projects',
+            'contractors.contractor',
+            'contractors.bankStatements',
+            'approvals'
+        ])->findOrFail($id);
+        
+        // Verify access
+        if ($analysis->transfer->agency_category_id !== $user->agency_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        // Verify status is Draft
+        if ($analysis->status !== 'Draft') {
+            return redirect()->route('pages.financial-analysis.show', $id)
+                ->with('error', 'Only Draft analyses can be edited.');
+        }
+        
+        return view('pages.financial-analysis-edit', compact('analysis'));
+    }
+
+    /**
+     * Update Financial Analysis
+     */
+    public function financialAnalysisUpdate(Request $request, $id)
+    {
+        $user = auth()->user();
+        
+        // Only Agency users can update
+        if (!$user->agency_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        $analysis = \App\Models\FinancialAnalysis::findOrFail($id);
+        
+        // Verify access
+        if ($analysis->transfer->agency_category_id !== $user->agency_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        // Verify status is Draft
+        if ($analysis->status !== 'Draft') {
+            return redirect()->back()->with('error', 'Only Draft analyses can be edited.');
+        }
+        
+        // Validation
+        $validated = $request->validate([
+            'contractors' => 'required|array',
+            'contractors.*.id' => 'required|exists:financial_analysis_contractors,id',
+            'contractors.*.registration_validity_date' => 'nullable|date',
+            'contractors.*.current_contract_load' => 'nullable|numeric|min:0',
+            'contractors.*.performance_record' => 'nullable|string',
+            'contractors.*.minimum_capital_requirement' => 'nullable|numeric|min:0',
+            'contractors.*.fixed_deposit' => 'nullable|numeric|min:0',
+            'contractors.*.credit_facility_balance' => 'nullable|numeric|min:0',
+            'contractors.*.additional_credit_facility' => 'nullable|numeric|min:0',
+            'contractors.*.meeting_decision' => 'nullable|string',
+            'contractors.*.justification' => 'nullable|string',
+            'contractors.*.is_qualified' => 'nullable|boolean',
+            'contractors.*.remarks' => 'nullable|string',
+            'contractors.*.bank_statements' => 'nullable|array',
+            'contractors.*.bank_statements.*.id' => 'required|exists:financial_analysis_bank_statements,id',
+            'contractors.*.bank_statements.*.ending_balance' => 'nullable|numeric',
+        ]);
+        
+        DB::beginTransaction();
+        try {
+            foreach ($request->contractors as $contractorData) {
+                $contractor = \App\Models\FinancialAnalysisContractor::findOrFail($contractorData['id']);
+                
+                // Update contractor evaluation
+                $contractor->update([
+                    'registration_validity_date' => $contractorData['registration_validity_date'] ?? null,
+                    'current_contract_load' => $contractorData['current_contract_load'] ?? null,
+                    'performance_record' => $contractorData['performance_record'] ?? null,
+                    'minimum_capital_requirement' => $contractorData['minimum_capital_requirement'] ?? null,
+                    'fixed_deposit' => $contractorData['fixed_deposit'] ?? null,
+                    'credit_facility_balance' => $contractorData['credit_facility_balance'] ?? null,
+                    'additional_credit_facility' => $contractorData['additional_credit_facility'] ?? null,
+                    'meeting_decision' => $contractorData['meeting_decision'] ?? null,
+                    'justification' => $contractorData['justification'] ?? null,
+                    'is_qualified' => $contractorData['is_qualified'] ?? null,
+                    'remarks' => $contractorData['remarks'] ?? null,
+                ]);
+                
+                // Update bank statements
+                if (isset($contractorData['bank_statements'])) {
+                    foreach ($contractorData['bank_statements'] as $statementData) {
+                        $statement = \App\Models\FinancialAnalysisBankStatement::findOrFail($statementData['id']);
+                        $statement->update([
+                            'ending_balance' => $statementData['ending_balance'] ?? null,
+                        ]);
+                    }
+                }
+                
+                // Recalculate three-month average
+                $contractor->three_month_average = $contractor->calculateThreeMonthAverage();
+                $contractor->save();
+            }
+            
+            DB::commit();
+            
+            return redirect()->route('pages.financial-analysis.edit', $id)
+                ->with('success', 'Financial Analysis updated successfully.');
+                
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to update Financial Analysis: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Submit Financial Analysis for Approval
+     */
+    public function financialAnalysisSubmit($id)
+    {
+        $user = auth()->user();
+        
+        // Only Agency users can submit
+        if (!$user->agency_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        $analysis = \App\Models\FinancialAnalysis::findOrFail($id);
+        
+        // Verify access
+        if ($analysis->transfer->agency_category_id !== $user->agency_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        // Verify status is Draft
+        if ($analysis->status !== 'Draft') {
+            return redirect()->back()->with('error', 'Only Draft analyses can be submitted.');
+        }
+        
+        // Verify has contractors
+        if ($analysis->contractors()->count() === 0) {
+            return redirect()->back()->with('error', 'Cannot submit analysis with no contractors.');
+        }
+        
+        // Update status
+        $analysis->update([
+            'status' => 'Submitted',
+            'submitted_by' => $user->id,
+            'submitted_at' => now(),
+        ]);
+        
+        return redirect()->route('pages.financial-analysis.show', $id)
+            ->with('success', 'Financial Analysis submitted for approval successfully.');
+    }
+
+    /**
+     * Approve Financial Analysis
+     */
+    public function financialAnalysisApprove($id)
+    {
+        $user = auth()->user();
+        
+        // Only Residen users can approve
+        if (!$user->residen_category_id) {
+            abort(403, 'Unauthorized access. Only Residen users can approve.');
+        }
+        
+        $analysis = \App\Models\FinancialAnalysis::findOrFail($id);
+        
+        // Verify status is Submitted
+        if ($analysis->status !== 'Submitted') {
+            return redirect()->back()->with('error', 'Only Submitted analyses can be approved.');
+        }
+        
+        // Update status
+        $analysis->update([
+            'status' => 'Approved',
+            'approved_by' => $user->id,
+            'approved_at' => now(),
+        ]);
+        
+        return redirect()->route('pages.financial-analysis.show', $id)
+            ->with('success', 'Financial Analysis approved successfully.');
+    }
+
+    /**
+     * Reject Financial Analysis
+     */
+    public function financialAnalysisReject(Request $request, $id)
+    {
+        $user = auth()->user();
+        
+        // Only Residen users can reject
+        if (!$user->residen_category_id) {
+            abort(403, 'Unauthorized access. Only Residen users can reject.');
+        }
+        
+        $analysis = \App\Models\FinancialAnalysis::findOrFail($id);
+        
+        // Verify status is Submitted
+        if ($analysis->status !== 'Submitted') {
+            return redirect()->back()->with('error', 'Only Submitted analyses can be rejected.');
+        }
+        
+        // Validate rejection remarks
+        $request->validate([
+            'rejection_remarks' => 'required|string',
+        ]);
+        
+        // Update status
+        $analysis->update([
+            'status' => 'Rejected',
+            'rejected_by' => $user->id,
+            'rejected_at' => now(),
+            'rejection_remarks' => $request->rejection_remarks,
+        ]);
+        
+        return redirect()->route('pages.financial-analysis.show', $id)
+            ->with('success', 'Financial Analysis rejected.');
+    }
+
+    /**
+     * Delete Financial Analysis
+     */
+    public function financialAnalysisDelete($id)
+    {
+        $user = auth()->user();
+        
+        // Only Agency users can delete
+        if (!$user->agency_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        $analysis = \App\Models\FinancialAnalysis::findOrFail($id);
+        
+        // Verify access
+        if ($analysis->transfer->agency_category_id !== $user->agency_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        // Verify status is Draft
+        if ($analysis->status !== 'Draft') {
+            return redirect()->back()->with('error', 'Only Draft analyses can be deleted.');
+        }
+        
+        // Delete analysis (cascade deletes related records)
+        $analysis->delete();
+        
+        return redirect()->route('pages.financial-analysis')
+            ->with('success', 'Financial Analysis deleted successfully.');
+    }
+
+    public function financialAnalysisExportExcel($id)
+    {
+        $user = auth()->user();
+        
+        // Only Agency and Residen users can export
+        if (!$user->agency_category_id && !$user->residen_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        $analysis = \App\Models\FinancialAnalysis::with([
+            'transfer.projects',
+            'contractors.contractor',
+            'contractors.bankStatements',
+            'approvals'
+        ])->findOrFail($id);
+        
+        // Verify access for Agency users
+        if ($user->agency_category_id && $analysis->transfer->agency_category_id !== $user->agency_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        $exporter = new \App\Services\FinancialAnalysisExcelExport();
+        $filepath = $exporter->export($analysis);
+        
+        return response()->download($filepath)->deleteFileAfterSend(true);
+    }
+
+    public function financialAnalysisExportPdf($id)
+    {
+        $user = auth()->user();
+        
+        // Only Agency and Residen users can export
+        if (!$user->agency_category_id && !$user->residen_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        $analysis = \App\Models\FinancialAnalysis::with([
+            'transfer.projects',
+            'contractors.contractor',
+            'contractors.bankStatements',
+            'approvals'
+        ])->findOrFail($id);
+        
+        // Verify access for Agency users
+        if ($user->agency_category_id && $analysis->transfer->agency_category_id !== $user->agency_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        $pdf = \PDF::loadView('pages.financial-analysis-pdf', compact('analysis'));
+        $pdf->setPaper('a4', 'landscape');
+        
+        $filename = 'financial_analysis_' . $analysis->id . '_' . date('YmdHis') . '.pdf';
+        
+        return $pdf->download($filename);
     }
 
     public function masterDataProjectOwnership(): View

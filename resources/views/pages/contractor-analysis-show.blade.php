@@ -30,6 +30,17 @@
                 <p class="content-description">View contractor analysis transfer details</p>
             </div>
             <div style="display: flex; gap: 10px;">
+                @php
+                    $financialAnalysis = \App\Models\FinancialAnalysis::where('contractor_analysis_transfer_id', $transfer->id)->first();
+                @endphp
+                
+                @if($financialAnalysis)
+                    <a href="{{ route('pages.financial-analysis.show', $financialAnalysis->id) }}" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
+                        <span class="material-symbols-outlined" style="font-size: 16px;">assessment</span>
+                        View Financial Analysis
+                    </a>
+                @endif
+                
                 <a href="{{ route('pages.contractor-analysis') }}" style="padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; text-decoration: none; display: inline-block;">
                     Back to List
                 </a>
