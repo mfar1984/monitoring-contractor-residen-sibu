@@ -1007,9 +1007,6 @@ function filterDistrictsByDivision() {
         districtSelect.appendChild(option);
     }
 }
-</script>
-@endsection
-
 
 /**
  * Update validity period from date inputs
@@ -1054,3 +1051,5 @@ function updateBumiValidity(index) {
         }
     }
 }
+</script>
+@endsection

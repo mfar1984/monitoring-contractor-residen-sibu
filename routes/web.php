@@ -60,6 +60,12 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::get('/pages/master-data/contractor', [PageController::class, 'masterDataContractor'])->name('pages.master-data.contractor');
     Route::get('/pages/master-data/contractor/create', [PageController::class, 'masterDataContractorCreate'])->name('pages.master-data.contractor.create');
     Route::post('/pages/master-data/contractor', [PageController::class, 'masterDataContractorStore'])->name('pages.master-data.contractor.store');
+    Route::get('/pages/master-data/contractor/export', [PageController::class, 'masterDataContractorExport'])->name('pages.master-data.contractor.export');
+    Route::get('/pages/master-data/contractor/export-upkj', [PageController::class, 'masterDataContractorExportUpkj'])->name('pages.master-data.contractor.export-upkj');
+    Route::post('/pages/master-data/contractor/import', [PageController::class, 'masterDataContractorImport'])->name('pages.master-data.contractor.import');
+    Route::post('/pages/master-data/contractor/import-upkj', [PageController::class, 'masterDataContractorImportUpkj'])->name('pages.master-data.contractor.import-upkj');
+    Route::get('/pages/master-data/contractor/sample', [PageController::class, 'masterDataContractorSample'])->name('pages.master-data.contractor.sample');
+    Route::get('/pages/master-data/contractor/sample-upkj', [PageController::class, 'masterDataContractorSampleUpkj'])->name('pages.master-data.contractor.sample-upkj');
     Route::get('/pages/master-data/contractor/{id}/edit', [PageController::class, 'masterDataContractorEdit'])->name('pages.master-data.contractor.edit');
     Route::put('/pages/master-data/contractor/{id}', [PageController::class, 'masterDataContractorUpdate'])->name('pages.master-data.contractor.update');
     Route::delete('/pages/master-data/contractor/{id}', [PageController::class, 'masterDataContractorDelete'])->name('pages.master-data.contractor.delete');
@@ -188,6 +194,11 @@ Route::middleware([\App\Http\Middleware\Authenticate::class, 'maintenance'])->gr
     Route::get('/pages/pre-project/noc/{id}/print', function($id) {
         return redirect("/pages/project/noc/{$id}/print", 301);
     });
+    
+    // Contractor Selections routes
+    Route::get('/pages/contractor-selections', [PageController::class, 'contractorSelections'])->name('pages.contractor-selections');
+    Route::get('/pages/contractor-selections/create', [PageController::class, 'contractorSelectionsCreate'])->name('pages.contractor-selections.create');
+    Route::post('/pages/contractor-selections', [PageController::class, 'contractorSelectionsStore'])->name('pages.contractor-selections.store');
     
     // Contractor Analysis routes
     Route::get('/pages/contractor-analysis', [PageController::class, 'contractorAnalysis'])->name('pages.contractor-analysis');

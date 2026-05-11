@@ -34,6 +34,14 @@ class ContractorUpkjRecord extends Model
         return $this->belongsTo(ContractorCategory::class);
     }
 
+    /**
+     * Alias for contractorCategory relationship
+     */
+    public function contractor()
+    {
+        return $this->belongsTo(ContractorCategory::class, 'contractor_category_id');
+    }
+
     public function getFormattedClassifications(): string
     {
         if (empty($this->classifications)) {

@@ -38,6 +38,11 @@
             </a>
             <ul class="submenu">
                 <li class="submenu-item">
+                    <a href="{{ route('pages.contractor-selections') }}" class="submenu-link">
+                        {{ \App\Helpers\TranslationHelper::trans('contractor_selections', 'Contractor Selections') }}
+                    </a>
+                </li>
+                <li class="submenu-item">
                     <a href="{{ route('pages.contractor-analysis') }}" class="submenu-link">
                         {{ \App\Helpers\TranslationHelper::trans('contractor_analysis', 'Contractor Analysis') }}
                     </a>

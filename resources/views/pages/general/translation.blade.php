@@ -118,6 +118,12 @@
                                 <input type="text" name="translations[drawing_lots]" value="{{ $translations['drawing_lots'] ?? '' }}" placeholder="Enter translation" style="width: 100%; padding: 5px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
                             </div>
 
+                            <!-- Contractor Selections -->
+                            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; align-items: center;">
+                                <input type="text" value="Contractor Selections" readonly style="width: 100%; padding: 5px 8px; border: 1px solid #e0e0e0; border-radius: 4px; background-color: #f5f5f5; font-size: 11px;">
+                                <input type="text" name="translations[contractor_selections]" value="{{ $translations['contractor_selections'] ?? '' }}" placeholder="Enter translation" style="width: 100%; padding: 5px 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 11px;">
+                            </div>
+
                             <!-- Contractor Analysis -->
                             <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; align-items: center;">
                                 <input type="text" value="Contractor Analysis" readonly style="width: 100%; padding: 5px 8px; border: 1px solid #e0e0e0; border-radius: 4px; background-color: #f5f5f5; font-size: 11px;">

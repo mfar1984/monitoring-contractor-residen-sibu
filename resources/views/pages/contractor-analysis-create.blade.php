@@ -379,23 +379,27 @@
             }
             
             // Get unique classes for ALL selected categories (from local data)
+            // CRITICAL: Use category + class as key to avoid overwriting duplicate class names
             const classesMap = new Map();
             upkjData.forEach(item => {
                 if (selectedCategories.includes(item.category) && item.class) {
-                    if (!classesMap.has(item.class)) {
-                        classesMap.set(item.class, {
+                    // Use category-class combination as unique key
+                    const key = item.category + '-' + item.class;
+                    if (!classesMap.has(key)) {
+                        classesMap.set(key, {
                             class: item.class,
+                            category: item.category,
                             class_description: item.class_description || ''
                         });
                     }
                 }
             });
             
-            // Populate classes dropdown with descriptions
+            // Populate classes dropdown with category prefix
             classesMap.forEach(item => {
                 const option = document.createElement('option');
                 option.value = item.class;
-                option.textContent = item.class + (item.class_description ? ' - ' + item.class_description : '');
+                option.textContent = item.class + ' - ' + item.category + (item.class_description ? ' - ' + item.class_description : '');
                 option.dataset.description = item.class_description;
                 classesSelect.appendChild(option);
             });
@@ -456,12 +460,16 @@
                     headsSelect.innerHTML = '<option>No heads available</option>';
                     headsSelect.disabled = true;
                 } else {
-                    // Populate heads dropdown
+                    // Populate heads dropdown with class prefix
                     heads.forEach(item => {
                         const option = document.createElement('option');
                         option.value = item.head_code;
-                        option.textContent = item.head_code + (item.head_name ? ' - ' + item.head_name : '');
+                        // Display with class prefix: "Class II - VIIA - Electrical - Electrical Works (Building)"
+                        option.textContent = item.display_name;
                         option.dataset.name = item.head_name;
+                        // Store class and category as data attributes for filtering
+                        option.setAttribute('data-class', item.class);
+                        option.setAttribute('data-category', item.category);
                         headsSelect.appendChild(option);
                     });
                     headsSelect.disabled = false;
@@ -483,8 +491,11 @@
             
             // Get selected values (arrays)
             const selectedCategories = Array.from(categoriesSelect.selectedOptions).map(opt => opt.value);
-            const selectedClasses = Array.from(classesSelect.selectedOptions).map(opt => opt.value);
             const selectedHeads = Array.from(headsSelect.selectedOptions).map(opt => opt.value);
+            
+            // CRITICAL: Get classes from selected heads only (not from class dropdown)
+            const selectedHeadClasses = Array.from(headsSelect.selectedOptions).map(opt => opt.getAttribute('data-class'));
+            const uniqueHeadClasses = [...new Set(selectedHeadClasses)]; // Remove duplicates
             
             // Reset subhead dropdown
             subheadsSelect.innerHTML = '';
@@ -509,7 +520,7 @@
                     },
                     body: JSON.stringify({
                         categories: selectedCategories,
-                        classes: selectedClasses,
+                        classes: uniqueHeadClasses, // Use classes from selected heads only
                         heads: selectedHeads
                     })
                 });
@@ -527,12 +538,18 @@
                     subheadsSelect.innerHTML = '<option>No subheads available</option>';
                     subheadsSelect.disabled = true;
                 } else {
-                    // Populate subheads dropdown
+                    // Populate subheads dropdown with class and head prefix
                     subheads.forEach(item => {
                         const option = document.createElement('option');
                         option.value = item.subhead_value;
-                        option.textContent = item.subhead_value + (item.description ? ' - ' + item.description : '');
+                        // Display with class and head prefix: "Class I - VIIA - 1 - Building Electrical Works"
+                        const displayText = 'Class ' + item.class + ' - ' + item.head_code + ' - ' + item.subhead_value + (item.description ? ' - ' + item.description : '');
+                        option.textContent = displayText;
                         option.dataset.description = item.description;
+                        // Store class, category, and head as data attributes
+                        option.setAttribute('data-class', item.class);
+                        option.setAttribute('data-category', item.category);
+                        option.setAttribute('data-head', item.head_code);
                         subheadsSelect.appendChild(option);
                     });
                     subheadsSelect.disabled = false;

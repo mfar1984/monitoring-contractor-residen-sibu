@@ -1273,13 +1273,27 @@ function loadExistingUpkjRecords() {
         }
         
         // Load classifications into mini-table
-        if (record.classifications && Array.isArray(record.classifications)) {
-            record.classifications.forEach(classification => {
+        // Handle double-encoded JSON (stored as string in database)
+        let classifications = record.classifications;
+        
+        // If classifications is a string, parse it
+        if (typeof classifications === 'string') {
+            try {
+                classifications = JSON.parse(classifications);
+            } catch (e) {
+                console.error('Failed to parse classifications:', e);
+                classifications = [];
+            }
+        }
+        
+        // Now process the classifications array
+        if (classifications && Array.isArray(classifications)) {
+            classifications.forEach(classification => {
                 addClassificationToMiniTable(currentIndex, classification);
             });
-        } else if (record.classifications && typeof record.classifications === 'object') {
+        } else if (classifications && typeof classifications === 'object') {
             // Handle old input format (object instead of array)
-            Object.values(record.classifications).forEach(classification => {
+            Object.values(classifications).forEach(classification => {
                 addClassificationToMiniTable(currentIndex, classification);
             });
         }

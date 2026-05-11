@@ -71,7 +71,7 @@ class ApiController extends Controller
 
     /**
      * Get available UPKJ heads based on selected categories and classes
-     * Returns only heads that have contractors
+     * Returns heads from master data (upkj_classifications table)
      * 
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -93,47 +93,34 @@ class ApiController extends Controller
             return response()->json([]);
         }
         
-        // Get all contractors with UPKJ records matching categories and classes
-        $contractors = ContractorCategory::whereHas('upkjRecords', function($query) use ($categories, $classes) {
-            $query->where(function($q) use ($categories, $classes) {
-                foreach ($classes as $class) {
-                    $q->orWhereRaw("JSON_SEARCH(classifications, 'one', ?, NULL, '$[*].class') IS NOT NULL", [$class]);
-                }
-            });
-        })
-        ->with(['upkjRecords' => function($query) {
-            $query->select('id', 'contractor_category_id', 'classifications');
-        }])
-        ->where('status', 'Active')
-        ->get();
+        // Get heads from master data (upkj_classifications table)
+        // Include class information in the response
+        $heads = UpkjClassification::where('status', 'active')
+            ->whereIn('category', $categories)
+            ->whereIn('class', $classes)
+            ->select('class', 'category', 'head_code', 'head_name')
+            ->distinct()
+            ->orderBy('class')
+            ->orderBy('head_code')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'head_code' => $item->head_code,
+                    'head_name' => $item->head_name ?? '',
+                    'class' => $item->class,
+                    'category' => $item->category,
+                    // Display format: "Class II - VIIA - Electrical - Electrical Works (Building)"
+                    'display_name' => 'Class ' . $item->class . ' - ' . $item->head_code . ' - ' . $item->category . ' - ' . ($item->head_name ?? '')
+                ];
+            })
+            ->values();
         
-        // Extract unique heads from contractor classifications
-        $headsMap = [];
-        foreach ($contractors as $contractor) {
-            foreach ($contractor->upkjRecords as $record) {
-                foreach ($record->classifications as $classification) {
-                    if (in_array($classification['class'], $classes) && !empty($classification['head_code'])) {
-                        $headCode = $classification['head_code'];
-                        if (!isset($headsMap[$headCode])) {
-                            $headsMap[$headCode] = [
-                                'head_code' => $headCode,
-                                'head_name' => $classification['head_name'] ?? ''
-                            ];
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Sort by head_code
-        ksort($headsMap);
-        
-        return response()->json(array_values($headsMap));
+        return response()->json($heads);
     }
     
     /**
      * Get available UPKJ subheads based on selected categories, classes, and heads
-     * Returns only subheads that have contractors
+     * Returns subheads from master data (upkj_classifications table)
      * 
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -158,48 +145,39 @@ class ApiController extends Controller
             return response()->json([]);
         }
         
-        // Get all contractors with UPKJ records matching categories, classes, and heads
-        $contractors = ContractorCategory::whereHas('upkjRecords', function($query) use ($categories, $classes, $heads) {
-            $query->where(function($q) use ($classes, $heads) {
-                foreach ($heads as $head) {
-                    $q->orWhereRaw("JSON_SEARCH(classifications, 'one', ?, NULL, '$[*].head_code') IS NOT NULL", [$head]);
-                }
-            });
-        })
-        ->with(['upkjRecords' => function($query) {
-            $query->select('id', 'contractor_category_id', 'classifications');
-        }])
-        ->where('status', 'Active')
-        ->get();
+        // Get subheads from master data (upkj_classifications table)
+        // Include class information in the response
+        $subheads = UpkjClassification::where('status', 'active')
+            ->whereIn('category', $categories)
+            ->whereIn('class', $classes)
+            ->whereIn('head_code', $heads)
+            ->whereNotNull('subhead_code')
+            ->select('class', 'category', 'head_code', 'subhead_code', 'subhead_letter', 'subhead_roman', 'description')
+            ->orderBy('class')
+            ->orderBy('head_code')
+            ->orderBy('subhead_code')
+            ->orderBy('subhead_letter')
+            ->orderBy('subhead_roman')
+            ->get()
+            ->map(function($item) {
+                $subheadValue = $item->subhead_code . 
+                              ($item->subhead_letter ?? '') . 
+                              ($item->subhead_roman ?? '');
+                return [
+                    'subhead_value' => $subheadValue,
+                    'description' => $item->description ?? '',
+                    'class' => $item->class,
+                    'category' => $item->category,
+                    'head_code' => $item->head_code
+                ];
+            })
+            ->unique(function($item) {
+                // Make unique by class + head + subhead combination
+                return $item['class'] . '-' . $item['head_code'] . '-' . $item['subhead_value'];
+            })
+            ->values();
         
-        // Extract unique subheads from contractor classifications
-        $subheadsMap = [];
-        foreach ($contractors as $contractor) {
-            foreach ($contractor->upkjRecords as $record) {
-                foreach ($record->classifications as $classification) {
-                    if (in_array($classification['class'], $classes) && 
-                        in_array($classification['head_code'], $heads) && 
-                        !empty($classification['subhead_code'])) {
-                        
-                        $subheadValue = $classification['subhead_code'] . 
-                                      ($classification['subhead_letter'] ?? '') . 
-                                      ($classification['subhead_roman'] ?? '');
-                        
-                        if (!isset($subheadsMap[$subheadValue])) {
-                            $subheadsMap[$subheadValue] = [
-                                'subhead_value' => $subheadValue,
-                                'description' => $classification['description'] ?? ''
-                            ];
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Sort by subhead_value
-        ksort($subheadsMap);
-        
-        return response()->json(array_values($subheadsMap));
+        return response()->json($subheads);
     }
 
     /**
@@ -218,6 +196,8 @@ class ApiController extends Controller
         $classes = $request->input('classes', []);
         $heads = $request->input('heads', []);
         $subheads = $request->input('subheads', []);
+        $divisionId = $request->input('division_id');
+        $districtId = $request->input('district_id');
         
         // Ensure arrays
         $categories = is_array($categories) ? $categories : [$categories];
@@ -238,10 +218,32 @@ class ApiController extends Controller
             ], 400);
         }
         
+        // Get division and district names from IDs
+        $divisionName = null;
+        $districtName = null;
+        
+        if ($divisionId) {
+            $division = \App\Models\Division::find($divisionId);
+            $divisionName = $division ? $division->name : null;
+        }
+        
+        if ($districtId) {
+            $district = \App\Models\District::find($districtId);
+            $districtName = $district ? $district->name : null;
+        }
+        
         // Get contractors with UPKJ records matching the selected filters
         // Logic: Match contractors where classifications match ALL selected filter levels (AND)
         // Within each level, match ANY of the selected values (OR)
         $contractors = ContractorCategory::where('status', 'Active')
+            // CRITICAL: Filter by division NAME (not ID)
+            ->when($divisionName, function($query) use ($divisionName) {
+                $query->where('division', $divisionName);
+            })
+            // CRITICAL: Filter by district NAME (not ID)
+            ->when($districtName, function($query) use ($districtName) {
+                $query->where('district', $districtName);
+            })
             ->whereHas('upkjRecords', function($query) use ($categories, $classes, $heads, $subheads) {
                 // We need to check if contractor has at least one classification matching all criteria
                 $query->where(function($q) use ($categories, $classes, $heads, $subheads) {
@@ -254,7 +256,7 @@ class ApiController extends Controller
             ->with(['upkjRecords' => function($query) {
                 $query->select('id', 'contractor_category_id', 'category', 'registration_status', 'validity_period', 'certificate_no', 'classifications');
             }])
-            ->select('id', 'company_name', 'code', 'registration_number', 'status', 'authorized_person_name', 'registered_address', 'telephone_no', 'email', 'upk_expiry_date')
+            ->select('id', 'company_name', 'code', 'registration_number', 'status', 'authorized_person_name', 'registered_address', 'telephone_no', 'email', 'upk_expiry_date', 'division', 'district')
             ->get();
         
         // Filter contractors in PHP to check if they have matching classifications
@@ -296,6 +298,39 @@ class ApiController extends Controller
         
         // Format response with ONLY selected UPKJ classifications
         $formattedContractors = $contractors->map(function($contractor) use ($categories, $classes, $heads, $subheads) {
+            // Collect ALL matching classifications (not just first)
+            $matchingClassifications = [];
+            
+            foreach ($contractor->upkjRecords as $record) {
+                $recordMatchesCategory = empty($categories) || in_array($record->category, $categories);
+                if (!$recordMatchesCategory) continue;
+                
+                foreach ($record->classifications as $c) {
+                    $matchesClass = empty($classes) || in_array($c['class'] ?? '', $classes);
+                    $matchesHead = empty($heads) || in_array($c['head_code'] ?? '', $heads);
+                    
+                    $subheadValue = ($c['subhead_code'] ?? '') . 
+                                  ($c['subhead_letter'] ?? '') . 
+                                  ($c['subhead_roman'] ?? '');
+                    $matchesSubhead = empty($subheads) || in_array($subheadValue, $subheads);
+                    
+                    if ($matchesClass && $matchesHead && $matchesSubhead) {
+                        $matchingClassifications[] = [
+                            'category' => $record->category,
+                            'class' => $c['class'] ?? null,
+                            'head' => $c['head_code'] ?? null,
+                            'subhead' => !empty($subheadValue) ? $subheadValue : null,
+                        ];
+                    }
+                }
+            }
+            
+            // Get unique values for display (show all matching, separated by comma)
+            $categories_display = collect($matchingClassifications)->pluck('category')->unique()->filter()->implode(', ');
+            $classes_display = collect($matchingClassifications)->pluck('class')->unique()->filter()->implode(', ');
+            $heads_display = collect($matchingClassifications)->pluck('head')->unique()->filter()->implode(', ');
+            $subheads_display = collect($matchingClassifications)->pluck('subhead')->unique()->filter()->implode(', ');
+            
             return [
                 'id' => $contractor->id,
                 'company_name' => $contractor->company_name,
@@ -308,6 +343,10 @@ class ApiController extends Controller
                 'email' => $contractor->email ?? '-',
                 'upk_expiry_date' => $contractor->upk_expiry_date ? $contractor->upk_expiry_date->format('d/m/Y') : null,
                 'is_expired' => $contractor->upk_expiry_date ? $contractor->upk_expiry_date->isPast() : false,
+                'upkj_category' => $categories_display ?: '-',
+                'upkj_class' => $classes_display ?: '-',
+                'upkj_head' => $heads_display ?: '-',
+                'upkj_subhead' => $subheads_display ?: '-',
                 'upkj_records' => $contractor->upkjRecords->map(function($record) use ($categories, $classes, $heads, $subheads) {
                     // Check if record category matches
                     $recordMatchesCategory = empty($categories) || in_array($record->category, $categories);

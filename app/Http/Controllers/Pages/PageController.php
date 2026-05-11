@@ -1128,6 +1128,843 @@ class PageController extends Controller
         return redirect()->route('pages.master-data.contractor')->with('success', 'Company deleted successfully');
     }
 
+    /**
+     * Export contractor companies to CSV
+     */
+    public function masterDataContractorExport()
+    {
+        $contractors = \App\Models\ContractorCategory::with('upkjRecords')->get();
+        
+        $filename = 'contractor_companies_' . date('Y-m-d_His') . '.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0'
+        ];
+        
+        $callback = function() use ($contractors) {
+            $file = fopen('php://output', 'w');
+            
+            // Add BOM for UTF-8
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // CSV Headers
+            fputcsv($file, [
+                'Code',
+                'Company Name',
+                'Registration Number',
+                'Office Registration No',
+                'Email',
+                'Telephone No',
+                'Mobile No',
+                'Fax No',
+                'Contact Person',
+                'Contact No',
+                'Date Established',
+                'Company Type',
+                'Company Category',
+                'Registration Category',
+                'Division',
+                'District',
+                'Bumiputera Status',
+                'Rescue Contractor',
+                'Authorized Person Name',
+                'Authorized Person IC',
+                'UPK License No',
+                'UPK Expiry Date',
+                'Registered Address',
+                'Postal Address',
+                'Business Address',
+                'Registered Location',
+                'City',
+                'State',
+                'Postcode',
+                'Manpower Sole Proprietor',
+                'Manpower Management',
+                'Manpower Professional',
+                'Manpower Sub Professional',
+                'Manpower Competent Worker',
+                'Manpower Total',
+                'Company Shareholders',
+                'Individual Shareholders',
+                'Description',
+                'Status'
+            ]);
+            
+            // Data rows
+            foreach ($contractors as $contractor) {
+                // Parse shareholders data
+                $shareholders = $contractor->getShareholders();
+                $companyShareholders = [];
+                $individualShareholders = [];
+                
+                foreach ($shareholders as $shareholder) {
+                    if (($shareholder['type'] ?? 'individual') === 'company') {
+                        // Company shareholder: Name (RegNo, Shares%)
+                        $companyShareholders[] = sprintf(
+                            '%s (%s, %s%%)',
+                            $shareholder['name'] ?? '',
+                            $shareholder['registration_no'] ?? '',
+                            $shareholder['shares'] ?? '0'
+                        );
+                    } else {
+                        // Individual shareholder: Name (IC, Shares%)
+                        $individualShareholders[] = sprintf(
+                            '%s (%s, %s%%)',
+                            $shareholder['name'] ?? '',
+                            $shareholder['ic_number'] ?? '',
+                            $shareholder['shares'] ?? '0'
+                        );
+                    }
+                }
+                
+                // Join with pipe separator
+                $companyShareholdersStr = implode('|', $companyShareholders);
+                $individualShareholdersStr = implode('|', $individualShareholders);
+                
+                fputcsv($file, [
+                    $contractor->code,
+                    $contractor->company_name,
+                    $contractor->registration_number,
+                    $contractor->office_registration_no,
+                    $contractor->email,
+                    $contractor->telephone_no,
+                    $contractor->mobile_no,
+                    $contractor->fax_no,
+                    $contractor->contact_person,
+                    $contractor->contact_no,
+                    $contractor->date_established ? $contractor->date_established->format('Y-m-d') : '',
+                    $contractor->company_type,
+                    $contractor->company_category,
+                    $contractor->registration_category,
+                    $contractor->division,
+                    $contractor->district,
+                    $contractor->bumiputera_status,
+                    $contractor->rescue_contractor ? 'Yes' : 'No',
+                    $contractor->authorized_person_name,
+                    $contractor->authorized_person_ic,
+                    $contractor->upk_license_no,
+                    $contractor->upk_expiry_date ? $contractor->upk_expiry_date->format('Y-m-d') : '',
+                    $contractor->registered_address,
+                    $contractor->postal_address,
+                    $contractor->business_address,
+                    $contractor->registered_location,
+                    $contractor->registered_address_city,
+                    $contractor->registered_address_state,
+                    $contractor->registered_address_postcode,
+                    $contractor->manpower_sole_proprietor,
+                    $contractor->manpower_management,
+                    $contractor->manpower_professional,
+                    $contractor->manpower_sub_professional,
+                    $contractor->manpower_competent_worker,
+                    $contractor->manpower_total,
+                    $companyShareholdersStr,
+                    $individualShareholdersStr,
+                    $contractor->description,
+                    $contractor->status
+                ]);
+            }
+            
+            fclose($file);
+        };
+        
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Import contractor companies from CSV
+     */
+    public function masterDataContractorImport(Request $request)
+    {
+        $request->validate([
+            'csv_file' => 'required|file|mimes:csv,txt|max:10240', // Max 10MB
+        ]);
+        
+        try {
+            $file = $request->file('csv_file');
+            $handle = fopen($file->getRealPath(), 'r');
+            
+            // Skip BOM if present
+            $bom = fread($handle, 3);
+            if ($bom !== chr(0xEF).chr(0xBB).chr(0xBF)) {
+                rewind($handle);
+            }
+            
+            // Read header row
+            $header = fgetcsv($handle);
+            
+            $imported = 0;
+            $updated = 0;
+            $errors = [];
+            
+            while (($row = fgetcsv($handle)) !== false) {
+                // Skip empty rows
+                if (empty(array_filter($row))) {
+                    continue;
+                }
+                
+                // Map CSV columns to array
+                $data = array_combine($header, $row);
+                
+                // Validate required fields
+                if (empty($data['Code']) || empty($data['Company Name'])) {
+                    $errors[] = "Row skipped: Code and Company Name are required";
+                    continue;
+                }
+                
+                // Check if contractor exists by code
+                $contractor = \App\Models\ContractorCategory::where('code', $data['Code'])->first();
+                
+                // Parse shareholders data from pipe-separated format
+                $shareholdersData = [];
+                
+                // Parse Company Shareholders: Name (RegNo, Shares%)|Name (RegNo, Shares%)
+                if (!empty($data['Company Shareholders'])) {
+                    $companyShareholdersList = explode('|', $data['Company Shareholders']);
+                    foreach ($companyShareholdersList as $shareholderStr) {
+                        $shareholderStr = trim($shareholderStr);
+                        if (empty($shareholderStr)) continue;
+                        
+                        // Parse format: Name (RegNo, Shares%)
+                        if (preg_match('/^(.+?)\s*\(([^,]+),\s*(\d+(?:\.\d+)?)%\)$/', $shareholderStr, $matches)) {
+                            $shareholdersData[] = [
+                                'type' => 'company',
+                                'name' => trim($matches[1]),
+                                'registration_no' => trim($matches[2]),
+                                'shares' => trim($matches[3]),
+                            ];
+                        }
+                    }
+                }
+                
+                // Parse Individual Shareholders: Name (IC, Shares%)|Name (IC, Shares%)
+                if (!empty($data['Individual Shareholders'])) {
+                    $individualShareholdersList = explode('|', $data['Individual Shareholders']);
+                    foreach ($individualShareholdersList as $shareholderStr) {
+                        $shareholderStr = trim($shareholderStr);
+                        if (empty($shareholderStr)) continue;
+                        
+                        // Parse format: Name (IC, Shares%)
+                        if (preg_match('/^(.+?)\s*\(([^,]+),\s*(\d+(?:\.\d+)?)%\)$/', $shareholderStr, $matches)) {
+                            $shareholdersData[] = [
+                                'type' => 'individual',
+                                'name' => trim($matches[1]),
+                                'ic_number' => trim($matches[2]),
+                                'shares' => trim($matches[3]),
+                            ];
+                        }
+                    }
+                }
+                
+                // Prepare data for insert/update
+                $contractorData = [
+                    'company_name' => $data['Company Name'],
+                    'registration_number' => $data['Registration Number'] ?? null,
+                    'office_registration_no' => $data['Office Registration No'] ?? null,
+                    'email' => $data['Email'] ?? null,
+                    'telephone_no' => $data['Telephone No'] ?? null,
+                    'mobile_no' => $data['Mobile No'] ?? null,
+                    'fax_no' => $data['Fax No'] ?? null,
+                    'contact_person' => $data['Contact Person'] ?? null,
+                    'contact_no' => $data['Contact No'] ?? null,
+                    'date_established' => !empty($data['Date Established']) ? $data['Date Established'] : null,
+                    'company_type' => $data['Company Type'] ?? 'contractor',
+                    'company_category' => $data['Company Category'] ?? null,
+                    'registration_category' => $data['Registration Category'] ?? null,
+                    'division' => $data['Division'] ?? null,
+                    'district' => $data['District'] ?? null,
+                    'bumiputera_status' => $data['Bumiputera Status'] ?? null,
+                    'rescue_contractor' => ($data['Rescue Contractor'] ?? 'No') === 'Yes' ? 1 : 0,
+                    'authorized_person_name' => $data['Authorized Person Name'] ?? null,
+                    'authorized_person_ic' => $data['Authorized Person IC'] ?? null,
+                    'upk_license_no' => $data['UPK License No'] ?? null,
+                    'upk_expiry_date' => !empty($data['UPK Expiry Date']) ? $data['UPK Expiry Date'] : null,
+                    'registered_address' => $data['Registered Address'] ?? null,
+                    'postal_address' => $data['Postal Address'] ?? null,
+                    'business_address' => $data['Business Address'] ?? null,
+                    'registered_location' => $data['Registered Location'] ?? null,
+                    'registered_address_city' => $data['City'] ?? null,
+                    'registered_address_state' => $data['State'] ?? null,
+                    'registered_address_postcode' => $data['Postcode'] ?? null,
+                    'manpower_sole_proprietor' => $data['Manpower Sole Proprietor'] ?? 0,
+                    'manpower_management' => $data['Manpower Management'] ?? 0,
+                    'manpower_professional' => $data['Manpower Professional'] ?? 0,
+                    'manpower_sub_professional' => $data['Manpower Sub Professional'] ?? 0,
+                    'manpower_competent_worker' => $data['Manpower Competent Worker'] ?? 0,
+                    'manpower_total' => $data['Manpower Total'] ?? 0,
+                    'shareholders_data' => $shareholdersData, // Add shareholders data
+                    'description' => $data['Description'] ?? null,
+                    'status' => $data['Status'] ?? 'Active',
+                ];
+                
+                if ($contractor) {
+                    // Update existing contractor
+                    $contractor->update($contractorData);
+                    $updated++;
+                } else {
+                    // Create new contractor
+                    $contractorData['code'] = $data['Code'];
+                    \App\Models\ContractorCategory::create($contractorData);
+                    $imported++;
+                }
+            }
+            
+            fclose($handle);
+            
+            $message = "Import completed: {$imported} new companies created, {$updated} companies updated";
+            if (!empty($errors)) {
+                $message .= ". " . count($errors) . " rows skipped due to errors.";
+            }
+            
+            return redirect()->route('pages.master-data.contractor')->with('success', $message);
+            
+        } catch (\Exception $e) {
+            return redirect()->route('pages.master-data.contractor')
+                ->with('error', 'Import failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Download sample CSV file
+     */
+    public function masterDataContractorSample()
+    {
+        $filename = 'contractor_sample.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0'
+        ];
+        
+        $callback = function() {
+            $file = fopen('php://output', 'w');
+            
+            // Add BOM for UTF-8
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // CSV Headers
+            fputcsv($file, [
+                'Code',
+                'Company Name',
+                'Registration Number',
+                'Office Registration No',
+                'Email',
+                'Telephone No',
+                'Mobile No',
+                'Fax No',
+                'Contact Person',
+                'Contact No',
+                'Date Established',
+                'Company Type',
+                'Company Category',
+                'Registration Category',
+                'Division',
+                'District',
+                'Bumiputera Status',
+                'Rescue Contractor',
+                'Authorized Person Name',
+                'Authorized Person IC',
+                'UPK License No',
+                'UPK Expiry Date',
+                'Registered Address',
+                'Postal Address',
+                'Business Address',
+                'Registered Location',
+                'City',
+                'State',
+                'Postcode',
+                'Manpower Sole Proprietor',
+                'Manpower Management',
+                'Manpower Professional',
+                'Manpower Sub Professional',
+                'Manpower Competent Worker',
+                'Manpower Total',
+                'Company Shareholders',
+                'Individual Shareholders',
+                'Description',
+                'Status'
+            ]);
+            
+            // Sample data rows
+            fputcsv($file, [
+                'CONT001',
+                'ABC Construction Sdn Bhd',
+                'ROC123456',
+                'OFFICE789',
+                'abc@construction.com',
+                '082-123456',
+                '019-1234567',
+                '082-654321',
+                'Ahmad bin Ali',
+                '019-7654321',
+                '2020-01-15',
+                'contractor',
+                'G7',
+                'Class A',
+                'Sibu',
+                'Sibu',
+                'Yes',
+                'No',
+                'Ahmad bin Ali',
+                '800101-13-5678',
+                'UPK12345',
+                '2025-12-31',
+                'No. 123, Jalan Maju, 96000 Sibu, Sarawak',
+                'P.O. Box 456, 96000 Sibu, Sarawak',
+                'No. 123, Jalan Maju, 96000 Sibu, Sarawak',
+                'Sibu',
+                'Sibu',
+                'Sarawak',
+                '96000',
+                '0',
+                '5',
+                '10',
+                '15',
+                '20',
+                '50',
+                'XYZ Holdings Sdn Bhd (ROC987654, 60%)|ABC Ventures (ROC456789, 40%)',
+                'Ahmad bin Ali (800101-13-5678, 50%)|Siti binti Hassan (850202-13-1234, 50%)',
+                'General construction company',
+                'Active'
+            ]);
+            
+            fclose($file);
+        };
+        
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Export UPKJ records to CSV
+     */
+    public function masterDataContractorExportUpkj()
+    {
+        $upkjRecords = \App\Models\ContractorUpkjRecord::with('contractor')->get();
+        
+        $filename = 'contractor_upkj_records_' . date('Y-m-d_His') . '.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0'
+        ];
+        
+        $callback = function() use ($upkjRecords) {
+            $file = fopen('php://output', 'w');
+            
+            // Add BOM for UTF-8
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // CSV Headers
+            fputcsv($file, [
+                'Company Code',
+                'Company Name',
+                'Category',
+                'Registration Status',
+                'Validity Period',
+                'Bumiputera Status',
+                'Bumiputera Validity',
+                'Certificate No',
+                'Classifications'
+            ]);
+            
+            // Data rows
+            foreach ($upkjRecords as $record) {
+                // Get classifications (already array from model cast)
+                $classifications = $record->classifications;
+                $classificationStr = '';
+                
+                if (is_array($classifications) && !empty($classifications)) {
+                    $classItems = [];
+                    foreach ($classifications as $class) {
+                        // Format: Class-HeadCode-SubheadCode (e.g., F-I-1, F-I-2bi)
+                        $classCode = $class['class'] ?? '';
+                        $headCode = $class['head_code'] ?? '';
+                        $subheadCode = $class['subhead_code'] ?? '';
+                        
+                        // Add roman numeral if exists
+                        if (!empty($class['subhead_roman'])) {
+                            $subheadCode .= $class['subhead_roman'];
+                        }
+                        
+                        // Add letter if exists
+                        if (!empty($class['subhead_letter'])) {
+                            $subheadCode .= $class['subhead_letter'];
+                        }
+                        
+                        // Build classification code
+                        if (!empty($classCode) && !empty($headCode) && !empty($subheadCode)) {
+                            $classItems[] = $classCode . '-' . $headCode . '-' . $subheadCode;
+                        }
+                    }
+                    $classificationStr = implode(', ', $classItems);
+                }
+                
+                fputcsv($file, [
+                    '="' . ($record->contractor->code ?? '') . '"', // Force as text to prevent Excel date conversion
+                    $record->contractor->company_name ?? '',
+                    $record->category,
+                    $record->registration_status,
+                    $record->validity_period,
+                    $record->bumiputera_status,
+                    $record->bumiputera_validity,
+                    $record->certificate_no,
+                    $classificationStr
+                ]);
+            }
+            
+            fclose($file);
+        };
+        
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Import UPKJ records from CSV
+     */
+    public function masterDataContractorImportUpkj(Request $request)
+    {
+        $request->validate([
+            'csv_file' => 'required|file|mimes:csv,txt|max:10240',
+        ]);
+        
+        try {
+            $file = $request->file('csv_file');
+            $handle = fopen($file->getRealPath(), 'r');
+            
+            // Skip BOM if present
+            $bom = fread($handle, 3);
+            if ($bom !== chr(0xEF).chr(0xBB).chr(0xBF)) {
+                rewind($handle);
+            }
+            
+            // Read header row
+            $header = fgetcsv($handle);
+            
+            $imported = 0;
+            $updated = 0;
+            $errors = [];
+            
+            while (($row = fgetcsv($handle)) !== false) {
+                // Skip empty rows
+                if (empty(array_filter($row))) {
+                    continue;
+                }
+                
+                // Map CSV columns to array
+                $data = array_combine($header, $row);
+                
+                // Validate required fields
+                if (empty($data['Company Code']) || empty($data['Category'])) {
+                    $errors[] = "Row skipped: Company Code and Category are required";
+                    continue;
+                }
+                
+                // Clean company code - remove Excel text formula if present
+                // Excel text formula format: ="CODE"
+                $companyCode = $data['Company Code'];
+                if (preg_match('/^="(.+)"$/', $companyCode, $matches)) {
+                    $companyCode = $matches[1];
+                }
+                
+                // Handle Excel date conversion issue
+                // Excel converts codes in multiple formats:
+                // 1. "1/96" → "Jan-96" (month/year)
+                // 2. "2/75" → "Feb-75" (month/year)
+                // 3. "11/88" → "Nov-88" (month/year)
+                // 4. "3-2" → "3-Feb" (day-month)
+                
+                $isExcelConverted = false;
+                $originalCodeHint = '';
+                
+                // Check format: Jan-96, Feb-75, Nov-88 (Month-Year)
+                if (preg_match('/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d+)$/i', $companyCode, $matches)) {
+                    $isExcelConverted = true;
+                    $monthMap = [
+                        'Jan' => 1, 'Feb' => 2, 'Mar' => 3, 'Apr' => 4, 'May' => 5, 'Jun' => 6,
+                        'Jul' => 7, 'Aug' => 8, 'Sep' => 9, 'Oct' => 10, 'Nov' => 11, 'Dec' => 12
+                    ];
+                    $month = $monthMap[ucfirst(strtolower($matches[1]))];
+                    $year = $matches[2];
+                    $originalCodeHint = "Possible original: {$month}/{$year}";
+                }
+                
+                // Check format: 3-Feb, 1-Jan (Day-Month)
+                if (preg_match('/^(\d+)-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/i', $companyCode, $matches)) {
+                    $isExcelConverted = true;
+                    $monthMap = [
+                        'Jan' => 1, 'Feb' => 2, 'Mar' => 3, 'Apr' => 4, 'May' => 5, 'Jun' => 6,
+                        'Jul' => 7, 'Aug' => 8, 'Sep' => 9, 'Oct' => 10, 'Nov' => 11, 'Dec' => 12
+                    ];
+                    $day = $matches[1];
+                    $month = $monthMap[ucfirst(strtolower($matches[2]))];
+                    $originalCodeHint = "Possible original: {$day}-{$month} or {$day}/{$month}";
+                }
+                
+                if ($isExcelConverted) {
+                    $errors[] = "Row skipped: Company Code '{$companyCode}' is Excel date-converted. {$originalCodeHint}. Please re-export CSV using the fixed export function.";
+                    continue;
+                }
+                
+                // Find contractor by code
+                $contractor = \App\Models\ContractorCategory::where('code', $companyCode)->first();
+                
+                if (!$contractor) {
+                    // Check if this might be an Excel date conversion issue
+                    if (preg_match('/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i', $companyCode)) {
+                        $errors[] = "Company with code '{$companyCode}' not found. This looks like Excel date conversion. Please format Company Code column as TEXT in Excel.";
+                    } else {
+                        $errors[] = "Company with code '{$companyCode}' not found in database.";
+                    }
+                    continue;
+                }
+                
+                // Parse classifications from format: F-I-1, F-I-2bi, F-II-5a
+                $classifications = [];
+                if (!empty($data['Classifications']) && trim($data['Classifications']) !== '') {
+                    $classItems = array_map('trim', explode(',', $data['Classifications']));
+                    
+                    foreach ($classItems as $item) {
+                        if (empty($item)) {
+                            continue; // Skip empty items
+                        }
+                        
+                        // Parse format: Class-HeadCode-SubheadCode (e.g., F-I-1, F-I-2bi)
+                        $parts = explode('-', $item);
+                        
+                        if (count($parts) >= 3) {
+                            $classCode = $parts[0];
+                            $headCode = $parts[1];
+                            $subheadFull = $parts[2];
+                            
+                            // Extract subhead number, roman, and letter
+                            // CORRECT format: number + roman + letter
+                            // Examples: "1" -> 1, "2ia" -> 2 + i + a, "2iia" -> 2 + ii + a, "5iia" -> 5 + ii + a
+                            preg_match('/^(\d+)([ivx]*)([a-z]*)$/i', $subheadFull, $matches);
+                            
+                            $subheadCode = $matches[1] ?? '';
+                            $subheadRoman = $matches[2] ?: null;
+                            $subheadLetter = $matches[3] ?: null;
+                            
+                            // Find matching UPKJ classification in master data
+                            $upkjClass = \App\Models\UpkjClassification::where('class', $classCode)
+                                ->where('head_code', $headCode)
+                                ->where('subhead_code', $subheadCode)
+                                ->where(function($q) use ($subheadLetter) {
+                                    if ($subheadLetter) {
+                                        $q->where('subhead_letter', $subheadLetter);
+                                    } else {
+                                        $q->whereNull('subhead_letter');
+                                    }
+                                })
+                                ->where(function($q) use ($subheadRoman) {
+                                    if ($subheadRoman) {
+                                        $q->where('subhead_roman', $subheadRoman);
+                                    } else {
+                                        $q->whereNull('subhead_roman');
+                                    }
+                                })
+                                ->first();
+                            
+                            if ($upkjClass) {
+                                $classifications[] = [
+                                    'class' => $upkjClass->class,
+                                    'head_code' => $upkjClass->head_code,
+                                    'head_name' => $upkjClass->head_name,
+                                    'description' => $upkjClass->description,
+                                    'subhead_code' => $upkjClass->subhead_code,
+                                    'subhead_roman' => $upkjClass->subhead_roman,
+                                    'subhead_letter' => $upkjClass->subhead_letter,
+                                    'class_description' => $upkjClass->class_description
+                                ];
+                            } else {
+                                // If not found in master data, store as-is
+                                $classifications[] = [
+                                    'class' => $classCode,
+                                    'head_code' => $headCode,
+                                    'head_name' => '',
+                                    'description' => '',
+                                    'subhead_code' => $subheadCode,
+                                    'subhead_roman' => $subheadRoman,
+                                    'subhead_letter' => $subheadLetter,
+                                    'class_description' => ''
+                                ];
+                            }
+                        }
+                    }
+                }
+                
+                // CRITICAL: Only update if we have valid classifications
+                // If Classifications column is empty, skip this record to preserve existing data
+                if (empty($classifications)) {
+                    $errors[] = "Row skipped for '{$data['Company Code']}' - '{$data['Category']}': No valid classifications found. Classifications column: '" . ($data['Classifications'] ?? 'EMPTY') . "'";
+                    continue;
+                }
+                
+                // CRITICAL: Remove duplicates from classifications array
+                // This prevents duplicate classifications from being saved
+                $uniqueClassifications = [];
+                $seen = [];
+                
+                foreach ($classifications as $classification) {
+                    $key = sprintf(
+                        '%s-%s-%s-%s-%s',
+                        $classification['class'] ?? '',
+                        $classification['head_code'] ?? '',
+                        $classification['subhead_code'] ?? '',
+                        $classification['subhead_letter'] ?? '',
+                        $classification['subhead_roman'] ?? ''
+                    );
+                    
+                    if (!isset($seen[$key])) {
+                        $seen[$key] = true;
+                        $uniqueClassifications[] = $classification;
+                    }
+                }
+                
+                // Prepare UPKJ data
+                $upkjData = [
+                    'contractor_category_id' => $contractor->id,
+                    'category' => $data['Category'],
+                    'registration_status' => $data['Registration Status'] ?? 'Valid',
+                    'validity_period' => $data['Validity Period'] ?? null,
+                    'bumiputera_status' => $data['Bumiputera Status'] ?? null,
+                    'bumiputera_validity' => $data['Bumiputera Validity'] ?? null,
+                    'certificate_no' => $data['Certificate No'] ?? null,
+                    'classifications' => $uniqueClassifications // Store as array, not json_encode
+                ];
+                
+                // Check if UPKJ record exists
+                $upkjRecord = \App\Models\ContractorUpkjRecord::where('contractor_category_id', $contractor->id)
+                    ->where('category', $data['Category'])
+                    ->first();
+                
+                if ($upkjRecord) {
+                    // Update existing
+                    $upkjRecord->update($upkjData);
+                    $updated++;
+                } else {
+                    // Create new
+                    \App\Models\ContractorUpkjRecord::create($upkjData);
+                    $imported++;
+                }
+            }
+            
+            fclose($handle);
+            
+            $message = "Import completed: {$imported} new UPKJ records created, {$updated} records updated";
+            if (!empty($errors)) {
+                $message .= ". " . count($errors) . " rows skipped due to errors.";
+                
+                // Store errors in session for display
+                session()->flash('import_errors', $errors);
+            }
+            
+            return redirect()->route('pages.master-data.contractor')->with('success', $message);
+            
+        } catch (\Exception $e) {
+            return redirect()->route('pages.master-data.contractor')
+                ->with('error', 'Import failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Download sample UPKJ CSV file
+     */
+    public function masterDataContractorSampleUpkj()
+    {
+        $filename = 'contractor_upkj_sample.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0'
+        ];
+        
+        $callback = function() {
+            $file = fopen('php://output', 'w');
+            
+            // Add BOM for UTF-8
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // CSV Headers
+            fputcsv($file, [
+                'Company Code',
+                'Company Name',
+                'Category',
+                'Registration Status',
+                'Validity Period',
+                'Bumiputera Status',
+                'Bumiputera Validity',
+                'Certificate No',
+                'Classifications'
+            ]);
+            
+            // Sample data rows
+            fputcsv($file, [
+                'CONT001',
+                'ABC Construction Sdn Bhd',
+                'Works',
+                'Valid',
+                '01/01/2024 - 31/12/2025',
+                'Yes',
+                '01/01/2024 - 31/12/2025',
+                'CERT-WORKS-001',
+                'F-I-1, F-I-2ai, F-I-2bi, F-II-5a, F-IV-1a'
+            ]);
+            
+            fputcsv($file, [
+                'CONT001',
+                'ABC Construction Sdn Bhd',
+                'Electrical',
+                'Valid',
+                '01/01/2024 - 31/12/2025',
+                'No',
+                '',
+                'CERT-ELEC-001',
+                'I-VIIA-1, II-VIIA-2'
+            ]);
+            
+            fputcsv($file, [
+                'CONT002',
+                'XYZ Engineering Sdn Bhd',
+                'Mechanical',
+                'Expired',
+                '01/01/2023 - 31/12/2023',
+                'No',
+                '',
+                'CERT-MECH-001',
+                'A-VIIB-1, B-VIIB-2'
+            ]);
+            
+            fputcsv($file, [
+                'CONT002',
+                'XYZ Engineering Sdn Bhd',
+                'Supplies & Services',
+                'Valid',
+                '01/06/2024 - 31/05/2026',
+                'Yes',
+                '01/06/2024 - 31/05/2026',
+                'CERT-SUPPLY-001',
+                'S1-1, S2-1'
+            ]);
+            
+            fclose($file);
+        };
+        
+        return response()->stream($callback, 200, $headers);
+    }
+
     public function masterDataStatus(): View
     {
         $statuses = \App\Models\StatusMaster::orderBy('created_at', 'desc')->get();
@@ -3245,6 +4082,134 @@ class PageController extends Controller
         } catch (\Exception $e) {
             return redirect()->route('pages.project.transfer.create')
                 ->with('error', 'Gagal transfer Pre-Project. Sila cuba lagi.');
+        }
+    }
+
+    public function contractorSelections(): View
+    {
+        $user = auth()->user();
+        
+        // Only Residen users can access
+        if (!$user->residen_category_id) {
+            abort(403, 'Unauthorized access. Only Residen users can access Contractor Selections.');
+        }
+        
+        // Get all contractor selections with relationships
+        $selections = \App\Models\ContractorSelection::with(['division', 'district', 'creator'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        return view('pages.contractor-selections', compact('selections'));
+    }
+
+    public function contractorSelectionsCreate(): View
+    {
+        $user = auth()->user();
+        
+        // Only Residen users can access
+        if (!$user->residen_category_id) {
+            abort(403, 'Unauthorized access. Only Residen users can access Contractor Selections.');
+        }
+        
+        // Get UPKJ data with cascade structure (Category → Class → Head → Subhead)
+        // Get distinct categories
+        $categories = DB::table('upkj_classifications')
+            ->select('category')
+            ->distinct()
+            ->whereNotNull('category')
+            ->orderBy('category')
+            ->pluck('category');
+        
+        // Get all UPKJ classifications for cascade filtering
+        $upkjClassifications = DB::table('upkj_classifications')
+            ->select('category', 'class', 'class_description', 'head_code', 'head_name', 
+                     'subhead_code', 'subhead_letter', 'subhead_roman', 'description')
+            ->orderBy('category')
+            ->orderBy('class')
+            ->orderBy('head_code')
+            ->orderBy('subhead_code')
+            ->get();
+        
+        // Get divisions and districts for additional filters
+        $divisions = \App\Models\Division::where('status', 'Active')
+            ->orderBy('name')
+            ->get();
+        
+        $districts = \App\Models\District::where('status', 'Active')
+            ->orderBy('name')
+            ->get();
+        
+        return view('pages.contractor-selections-create', compact('upkjClassifications', 'categories', 'divisions', 'districts'));
+    }
+
+    public function contractorSelectionsStore(Request $request)
+    {
+        $user = auth()->user();
+        
+        // Only Residen users can create
+        if (!$user->residen_category_id) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        $validated = $request->validate([
+            'upkj_categories' => 'nullable|array',
+            'upkj_classes' => 'nullable|array',
+            'upkj_heads' => 'nullable|array',
+            'upkj_subheads' => 'nullable|array',
+            'division_id' => 'nullable|exists:divisions,id',
+            'district_id' => 'nullable|exists:districts,id',
+            'contractor_ids' => 'required|array|min:1',
+            'contractor_ids.*' => 'exists:contractor_categories,id',
+        ]);
+        
+        try {
+            DB::beginTransaction();
+            
+            // Generate selection number
+            $selectionNumber = \App\Models\ContractorSelection::generateSelectionNumber();
+            
+            // Create contractor selection record
+            $selection = \App\Models\ContractorSelection::create([
+                'selection_number' => $selectionNumber,
+                'division_id' => $validated['division_id'] ?? null,
+                'district_id' => $validated['district_id'] ?? null,
+                'upkj_categories' => $validated['upkj_categories'] ?? [],
+                'upkj_classes' => $validated['upkj_classes'] ?? [],
+                'upkj_heads' => $validated['upkj_heads'] ?? [],
+                'upkj_subheads' => $validated['upkj_subheads'] ?? [],
+                'created_by' => $user->id,
+                'status' => 'Active',
+                'generated_at' => now(),
+            ]);
+            
+            // Attach contractors with their current data (fingerprint)
+            foreach ($validated['contractor_ids'] as $contractorId) {
+                $contractor = \App\Models\ContractorCategory::find($contractorId);
+                
+                if ($contractor) {
+                    $selection->contractors()->attach($contractorId, [
+                        'company_name' => $contractor->company_name,
+                        'registration_number' => $contractor->registration_number,
+                        'upkj_class' => $contractor->upkj_class,
+                        'upkj_head' => $contractor->upkj_head,
+                        'upkj_subhead' => $contractor->upkj_subhead,
+                        'upk_expiry_date' => $contractor->upk_expiry_date,
+                        'status_at_generation' => $contractor->status,
+                        'snapshot_data' => json_encode($contractor->toArray()),
+                    ]);
+                }
+            }
+            
+            DB::commit();
+            
+            return redirect()->route('pages.contractor-selections')
+                ->with('success', 'Contractor selection created successfully with ' . count($validated['contractor_ids']) . ' contractor(s).');
+                
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Failed to create contractor selection', ['error' => $e->getMessage()]);
+            return redirect()->back()
+                ->with('error', 'Failed to create contractor selection. Please try again.');
         }
     }
 
