@@ -541,6 +541,22 @@
                             <th>UPKJ Subhead</th>
                             <th>UPK Expiry</th>
                             <th>Status</th>
+                            <th style="width: 100px; text-align: center;">
+                                Selected
+                                <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 5px;">
+                                    <button type="button" 
+                                            onclick="selectAllYes()" 
+                                            style="padding: 3px 8px; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 10px;">
+                                        All YES
+                                    </button>
+                                    <button type="button" 
+                                            onclick="selectAllNo()" 
+                                            style="padding: 3px 8px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 10px;">
+                                        All NO
+                                    </button>
+                                </div>
+                            </th>
+                            <th style="width: 200px;">Reason</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -574,6 +590,33 @@
                             </span>
                             ${isExpired ? '<br><span style="color: #dc3545; font-size: 10px;">EXPIRED</span>' : ''}
                         </td>
+                        <td style="text-align: center;">
+                            <div style="display: flex; justify-content: center; align-items: center; gap: 15px;">
+                                <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
+                                    <input type="radio" 
+                                           name="selected_${contractor.id}" 
+                                           value="YES" 
+                                           ${disabled}
+                                           style="width: 16px; height: 16px; margin-right: 5px; accent-color: #28a745;">
+                                    <span style="font-size: 11px; white-space: nowrap;">YES</span>
+                                </label>
+                                <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
+                                    <input type="radio" 
+                                           name="selected_${contractor.id}" 
+                                           value="NO" 
+                                           ${disabled}
+                                           style="width: 16px; height: 16px; margin-right: 5px; accent-color: #dc3545;">
+                                    <span style="font-size: 11px; white-space: nowrap;">NO</span>
+                                </label>
+                            </div>
+                        </td>
+                        <td>
+                            <input type="text" 
+                                   name="reason_${contractor.id}" 
+                                   placeholder="Enter reason" 
+                                   ${disabled}
+                                   style="width: 100%; padding: 6px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 11px;">
+                        </td>
                     </tr>
                 `;
             });
@@ -598,6 +641,22 @@
             });
             
             updateContractorSelection();
+        }
+        
+        // Select All YES
+        function selectAllYes() {
+            const yesRadios = document.querySelectorAll('input[type="radio"][value="YES"]:not([disabled])');
+            yesRadios.forEach(radio => {
+                radio.checked = true;
+            });
+        }
+        
+        // Select All NO
+        function selectAllNo() {
+            const noRadios = document.querySelectorAll('input[type="radio"][value="NO"]:not([disabled])');
+            noRadios.forEach(radio => {
+                radio.checked = true;
+            });
         }
         
         // Update contractor selection summary

@@ -4187,6 +4187,10 @@ class PageController extends Controller
                 $contractor = \App\Models\ContractorCategory::find($contractorId);
                 
                 if ($contractor) {
+                    // Get selected (YES/NO) and reason from request
+                    $selected = $request->input("selected_{$contractorId}"); // YES, NO, or null
+                    $reason = $request->input("reason_{$contractorId}");
+                    
                     $selection->contractors()->attach($contractorId, [
                         'company_name' => $contractor->company_name,
                         'registration_number' => $contractor->registration_number,
@@ -4196,6 +4200,8 @@ class PageController extends Controller
                         'upk_expiry_date' => $contractor->upk_expiry_date,
                         'status_at_generation' => $contractor->status,
                         'snapshot_data' => json_encode($contractor->toArray()),
+                        'selected' => $selected, // YES, NO, or null
+                        'reason' => $reason,
                     ]);
                 }
             }
